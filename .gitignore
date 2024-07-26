@@ -1,0 +1,43 @@
+# macOS
+.DS_Store
+# profile
+*.heap
+# Visual Studio Code
+.vscode/
+.devcontainer/
+#*.json
+*.log
+# JetBrains
+.idea/
+*.iml
+
+# CLion
+cmake-build-debug/
+/cmake-build-wsl_profile/
+
+# build
+*.exe
+*.app
+build/
+# data
+tmp/
+
+docker/tmp
+docker/*/tmp
+# Rust
+src/**/target
+src/**/target_tarpaulin
+target/
+# runtime log
+src/log/
+# srcy-tags
+**/srcy-tags.vi
+
+# ctags
+**/tags
+
+*.log
+log/
+logs/
+.monograph_proxy
+.bin/

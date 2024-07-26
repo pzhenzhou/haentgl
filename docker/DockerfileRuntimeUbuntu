@@ -1,0 +1,86 @@
+# Stage 1: Build stage
+FROM ubuntu:24.04 AS rust-base
+
+ARG TARGETPLATFORM
+ENV LANG=en_US.utf8
+ARG USING_MIRROR=false
+
+COPY ./docker/sources_amd64.list /etc/apt/sources_amd64.list
+COPY ./docker/sources_arm64.list /etc/apt/sources_arm64.list
+
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y \
+    ca-certificates \
+    && apt-get clean && \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+RUN if [ "$USING_MIRROR" = "true" ]; then \
+        echo "Using repository mirror" && \
+        rm /etc/apt/sources.list && rm -rf /etc/apt/sources.list.d/* && \
+        case "$TARGETPLATFORM" in \
+        "linux/amd64") cp /etc/apt/sources_amd64.list /etc/apt/sources.list ;; \
+        "linux/arm64") cp /etc/apt/sources_arm64.list /etc/apt/sources.list ;; \
+        esac && \
+        echo "Using the following sources.list:" && \
+        cat /etc/apt/sources.list; \
+    fi
+
+# Install required packages for building and cross-compilation
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y \
+    build-essential \
+    protobuf-compiler libprotobuf-dev curl gcc-aarch64-linux-gnu gcc-x86-64-linux-gnu  pkg-config \
+    libc6-dev-amd64-cross  libc6-dev-arm64-cross \
+    && apt-get clean && \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+SHELL ["/bin/bash", "-c"]
+
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --no-modify-path --default-toolchain none -y
+ENV PATH=/root/.cargo/bin/:$PATH
+ENV CARGO_INCREMENTAL=0
+
+FROM rust-base AS rust-builder
+# Set the work directory and copy the source code
+WORKDIR /usr/src/haentgl
+COPY . .
+# Declare the Rust toolchain version argument at the beginning
+ARG RUST_TOOLCHAIN
+
+# Update rustup and install the specific Rust toolchain and targets
+RUN rustup self update && \
+    rustup set profile minimal && \
+    rustup install ${RUST_TOOLCHAIN}
+
+ENV PROTOC_INCLUDE=/usr/include
+RUN cargo +$RUST_TOOLCHAIN build --release && \
+    mkdir -p bin && \
+    cp target/release/my-proxy bin/my-proxy && \
+    cp target/release/build/tikv-jemalloc-sys-*/out/build/bin/jeprof bin/jeprof && \
+    chmod +x bin/* && cargo clean
+
+# Final stage
+FROM ubuntu:24.04 AS eloqsql-proxy
+
+# Set environment variables
+ENV LANG=en_US.utf8
+ENV ENABLE_CP=true
+ENV USER_BACKEND=true
+ENV IN_CONTAINER=1
+
+# Set the working directory and copy the binaries and entrypoint script
+WORKDIR /haentgl
+COPY --from=rust-builder /usr/src/haentgl/bin ./bin
+COPY ./docker/entrypoint.sh /entrypoint.sh
+
+# Ensure the entrypoint script is executable
+RUN chmod +x /entrypoint.sh
+
+# Install runtime dependencies
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+# Set the entrypoint
+ENTRYPOINT ["/entrypoint.sh"]

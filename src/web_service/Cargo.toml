@@ -1,0 +1,22 @@
+[package]
+name = "web_service"
+version = { workspace = true }
+edition = { workspace = true }
+keywords = { workspace = true }
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = { workspace = true }
+axum = "0.7.3"
+axum-macros = "0.4.0"
+chrono = { version = "0.4.31", default-features = false, features = ["clock", "std"] }
+common = { path = "../common" }
+hyper = { version = "1.1.0", features = ["full"] }
+serde = { version = "1.0.188", features = ["derive"] }
+tokio = { version = "1", features = ["full"] }
+tower = { version = "0.4", features = ["full"] }
+tower-http = { version = "0.5.0", features = ["full"] }
+tracing = "0.1.37"
+walkdir = "2"
+
+

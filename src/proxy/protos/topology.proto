@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+import "common.proto";
+
+
+package topology;
+
+option optimize_for = SPEED;
+
+message SubscribeRequest {
+    common_proto.ClusterName cluster_name = 1;
+    common_proto.SubscribeId subscribe_id = 2;
+}
+
+message SubscribeNamespaceRequest {
+    common_proto.DBLocation db_location = 1;
+    common_proto.SubscribeId subscribe_id = 2;
+}
+
+message GetTopologyRequest {
+    repeated common_proto.DBLocation locations = 1;
+    map<string, string> label = 2;
+}
+
+service Topology {
+    rpc GetTopology (GetTopologyRequest) returns (common_proto.Response) {};
+    rpc SubscribeNamespace (stream SubscribeNamespaceRequest) returns (stream common_proto.Response) {};
+    rpc CancelSubscribeNamespace (SubscribeNamespaceRequest) returns (common_proto.Response) {};
+}
+

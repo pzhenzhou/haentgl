@@ -1,0 +1,81 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+package common_proto;
+
+option optimize_for = SPEED;
+
+
+enum ServiceStatus {
+    UnKnowStatus = 0;
+    NotReady = 1;
+    Ready = 2;
+    Offline = 3;
+}
+
+message SubscribeId {
+    string id = 1;
+}
+
+message ClusterName {
+    string namespace = 1;
+    string cluster_name = 2;
+}
+
+message DBLocation {
+    string region = 1;
+    string available_zone = 2;
+    string namespace = 3;
+    string node_name = 4;
+}
+
+message TenantKey {
+    string region = 1;
+    string available_zone = 2;
+    string namespace = 3;
+    string cluster_name = 4;
+}
+
+// ServiceExpose In a cloud that relies on an existing cloud service such as AWS ELB;
+// this message can be extended because each cloud provider has a different property.
+message ServiceExpose {
+    string addr = 1;
+    int32 port = 2;
+}
+
+message Endpoint {
+    string address = 1;
+    string port_name = 2;
+    int32 port = 3;
+}
+
+message DBService {
+    DBLocation location = 1;
+    string cluster = 2;
+    string service = 3;
+    ServiceStatus status = 4;
+    ServiceExpose expose = 5;
+    repeated Endpoint endpoints = 6;
+    map<string, string> payload = 7;
+}
+
+message DBServiceList {
+    repeated DBService service_list = 1;
+}
+
+message ServiceChangeEvent {
+    DBService service = 1;
+    google.protobuf.Timestamp event_timestamp = 2;
+}
+
+message Response {
+    int32 status = 1;
+    string message = 2;
+    oneof payload {
+        DBServiceList service_list = 3;
+        ServiceChangeEvent change_event = 4;
+        google.protobuf.Empty no_data = 5;
+    }
+}

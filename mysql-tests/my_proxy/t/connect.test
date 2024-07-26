@@ -1,0 +1,152 @@
+# This test is to check various cases of connections
+# with right and wrong password, with and without database
+# Unfortunately the check is incomplete as we can't connect without database
+
+# This test makes no sense with the embedded server
+--source include/not_embedded.inc
+
+# check that CSV engine was compiled in, as the test relies on the presence
+# of the log tables (which are CSV-based). By connect mysql; show tables;
+--source include/have_csv.inc
+
+# Save the initial number of concurrent sessions
+--source include/count_sessions.inc
+
+SET global secure_auth=0;
+
+#connect (con1,localhost,root,,"");
+#show tables;
+connect (con1,localhost,root,,mysql);
+show tables;
+connect (con2,localhost,root,,test);
+show tables;
+
+--replace_result $BACKEND_SOCK BACKEND_SOCKET $BACKEND_PORT BACKEND_PORT
+--error ER_ACCESS_DENIED_ERROR
+connect (fail_con,localhost,root,z,test2);
+--replace_result $BACKEND_SOCK BACKEND_SOCKET $BACKEND_PORT BACKEND_PORT
+--error ER_ACCESS_DENIED_ERROR
+connect (fail_con,localhost,root,z,);
+
+connection default;
+disconnect con1;
+disconnect con2;
+
+grant ALL on *.* to test@localhost identified by "gambling";
+grant ALL on *.* to test@localhost identified by "gambling";
+
+# Now check this user with different databases
+#connect (con1,localhost,test,gambling,"");
+#show tables;
+connect (con3,localhost,test,gambling,mysql);
+show tables;
+connect (con4,localhost,test,gambling,test);
+show tables;
+
+connection default;
+disconnect con3;
+disconnect con4;
+
+--replace_result $BACKEND_SOCK BACKEND_SOCKET $BACKEND_PORT BACKEND_PORT
+--error ER_ACCESS_DENIED_ERROR
+connect (fail_con,localhost,test,,test2);
+--replace_result $BACKEND_SOCK BACKEND_SOCKET $BACKEND_PORT BACKEND_PORT
+--error ER_ACCESS_DENIED_ERROR
+# Need to protect "" within '' so it's interpreted literally
+connect (fail_con,localhost,test,,'""');
+--replace_result $BACKEND_SOCK BACKEND_SOCKET $BACKEND_PORT BACKEND_PORT
+--error ER_ACCESS_DENIED_ERROR
+connect (fail_con,localhost,test,zorro,test2);
+--replace_result $BACKEND_SOCK BACKEND_SOCKET $BACKEND_PORT BACKEND_PORT
+--error ER_ACCESS_DENIED_ERROR
+connect (fail_con,localhost,test,zorro,);
+
+# check if old password version also works
+source include/switch_to_mysql_user.inc;
+update mysql.user set plugin="", authentication_string="", password=old_password("gambling2") where user=_binary"test";
+flush privileges;
+show grants for test@localhost;
+update mysql.user set plugin='mysql_old_password' where user='test';
+flush privileges;
+show grants for test@localhost;
+
+connect (con10,localhost,test,gambling2,);
+connect (con5,localhost,test,gambling2,mysql);
+set password="";
+--error ER_PASSWD_LENGTH
+set password='gambling3';
+set password=old_password('gambling3');
+show tables;
+connect (con6,localhost,test,gambling3,test);
+show tables;
+
+connection default;
+disconnect con10;
+disconnect con5;
+disconnect con6;
+
+--replace_result $BACKEND_SOCK BACKEND_SOCKET $BACKEND_PORT BACKEND_PORT
+--error ER_ACCESS_DENIED_ERROR
+connect (fail_con,localhost,test,,test2);
+--replace_result $BACKEND_SOCK BACKEND_SOCKET $BACKEND_PORT BACKEND_PORT
+--error ER_ACCESS_DENIED_ERROR
+connect (fail_con,localhost,test,,);
+--replace_result $BACKEND_SOCK BACKEND_SOCKET $BACKEND_PORT BACKEND_PORT
+--error ER_ACCESS_DENIED_ERROR
+connect (fail_con,localhost,test,zorro,test2);
+--replace_result $BACKEND_SOCK BACKEND_SOCKET $BACKEND_PORT BACKEND_PORT
+--error ER_ACCESS_DENIED_ERROR
+connect (fail_con,localhost,test,zorro,);
+
+source include/switch_to_mysql_global_priv.inc;
+# remove user 'test' so that other tests which may use 'test'
+# do not depend on this test.
+delete from mysql.user where user=_binary"test";
+
+###########################################################################
+#
+# A couple of plugin tests - for builtin plugins only
+#
+CREATE USER mysqltest_up1 IDENTIFIED VIA mysql_native_password using '*E8D46CE25265E545D225A8A6F1BAF642FEBEE5CB';
+CREATE USER mysqltest_up2 IDENTIFIED VIA mysql_old_password using '09301740536db389';
+
+--replace_result $BACKEND_SOCK BACKEND_SOCKET $BACKEND_PORT MASTER_PORT
+--error ER_ACCESS_DENIED_ERROR
+connect(pcon1,localhost,mysqltest_up1,foo,,$BACKEND_PORT,);
+#connect(pcon2,localhost,mysqltest_up1,bar,,$BACKEND_PORT,);
+
+select user(), current_user();
+
+--replace_result $BACKEND_SOCK BACKEND_SOCKET $BACKEND_PORT MASTER_PORT
+--error ER_ACCESS_DENIED_ERROR
+connect(pcon3,localhost,mysqltest_up2,newpw,,$BACKEND_PORT,);
+#connect(pcon4,localhost,mysqltest_up2,oldpw,,$BACKEND_PORT,);
+select user(), current_user();
+
+#
+# lp:683112 Maria 5.2 incorrectly reports "(using password: NO)"
+#           even when password is specified
+#
+# test "access denied" error for nonexisting user with and without a password
+#
+--replace_result $BACKEND_SOCK BACKEND_SOCKET $BACKEND_PORT MASTER_PORT
+--error ER_ACCESS_DENIED_ERROR
+connect(pcon5,localhost,mysqltest_nouser,newpw,,$BACKEND_PORT,);
+--replace_result $BACKEND_SOCK BACKEND_SOCKET $BACKEND_PORT MASTER_PORT
+--error ER_ACCESS_DENIED_ERROR
+connect(pcon5,localhost,mysqltest_nouser,,,$BACKEND_PORT,);
+
+connection default;
+
+
+DROP USER mysqltest_up1@'%';
+DROP USER mysqltest_up2@'%';
+
+DROP USER test;
+CREATE USER 'test'@'%' IDENTIFIED BY 'gambling';
+GRANT ALL PRIVILEGES ON *.* TO 'test'@'%' IDENTIFIED BY 'gambling';
+FLUSH PRIVILEGES;
+
+disconnect default;
+
+--echo # End of 10.4 tests

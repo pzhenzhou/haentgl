@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+
+package control_plane;
+
+option optimize_for = SPEED;
+
+enum PacketType {
+    PACKET_TYPE_UNSPECIFIED = 0;
+    PACKET_TYPE_ACTIVE_USER = 1;
+}
+
+message PacketHeader {
+    PacketType packet_type = 1;
+    uint32 package_count = 2;
+    uint32 size_pre_package = 3;
+    uint32 size = 4;
+}
+
+message EloqCluster {
+    string region = 1;
+    string az = 2;
+    string namespace = 3;
+    string cluster = 4;
+}
+
+message UserCom {
+    EloqCluster cluster = 1;
+    string user = 2;
+    bytes com = 3;
+    uint64 com_ts = 4;
+}
+
+message ControlPlaneResponse {
+    PacketHeader header = 1;
+    oneof packet_data {
+        ActiveUsers active_user = 3;
+    }
+}
+
+message ActiveUsers {
+    repeated UserCom active_user_com = 1;
+}
+
+service ControlPlaneService {
+    rpc ActiveUsers (stream google.protobuf.Empty) returns (stream ControlPlaneResponse) {}
+}

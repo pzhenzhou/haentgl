@@ -1,0 +1,67 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: eloqsql-proxy-service
+  namespace: eloqsql-proxy-system
+spec:
+  selector:
+    eloqdata.com/proxy: "eloqsql-proxy"
+  ports:
+    - name: eloqsql-proxy-port
+      port: 3310
+      targetPort: proxy-port
+    - name: eloqsql-cp-port
+      port: 19001
+      targetPort: cp-port
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: eloqsql-proxy-dev1
+  namespace: eloqsql-proxy-system
+  labels:
+    app.kubernetes.io/name: "eloqdb-proxy"
+    eloqdata.com/proxy: "eloqsql-proxy"
+    eloqdata.com/proxy-name: "eloqsql-proxy-dev1"
+spec:
+  serviceName: eloqsql-proxy-service
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: "eloqdb-proxy"
+      eloqdata.com/proxy: "eloqsql-proxy"
+      eloqdata.com/proxy-name: "eloqsql-proxy-dev1"
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: "eloqdb-proxy"
+        eloqdata.com/proxy: "eloqsql-proxy"
+        eloqdata.com/proxy-name: "eloqsql-proxy-dev1"
+    spec:
+      containers:
+        - name: eloqsql-proxy
+          resources:
+            requests:
+              memory: "1000Mi"
+              cpu: "2"
+            limits:
+              memory: "1000Mi"
+              cpu: "2"
+          image: 975049945491.dkr.ecr.ap-northeast-1.amazonaws.com/eloqsql-proxy:multi_arch_latest
+          imagePullPolicy: Always
+          args:
+            - "--works 2"
+            - "--port 3310"
+            - "--enable-cp"
+          ports:
+            - containerPort: 3310
+              name: proxy-port
+            - containerPort: 19001
+              name: cp-port
+          env:
+            - name: WORKS
+              value: "2"
+            - name: BACKEND_ADDR
+              value: "mariadb-service.eloqsql-proxy-system.svc.cluster.local:3315"
+            - name: ENABLE_CP
+              value: "true"

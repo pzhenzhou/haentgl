@@ -1,0 +1,110 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    myProxyAutoDiscovery: "true"
+    haentgl.data.com/proxy: "my-proxy"
+  name: my-proxy-system
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mariadb-config
+  namespace: my-proxy-system
+data:
+  my.cnf: |
+    [mysqld]
+    port = 3315
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mariadb-init-scripts
+  namespace: my-proxy-system
+data:
+  init.sql: |
+    GRANT ALL PRIVILEGES ON *.* TO 'mono'@'%' WITH GRANT OPTION;
+    FLUSH PRIVILEGES;
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mariadb-service
+  namespace: my-proxy-system
+spec:
+  ports:
+    - port: 3315
+      targetPort: 3315
+      protocol: TCP
+      name: mariadb
+  selector:
+    app.kubernetes.io/name: "static-backend-mariadb"
+  clusterIP: None
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mariadb
+  namespace: my-proxy-system
+spec:
+  serviceName: "mariadb-service"
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: "static-backend-mariadb"
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: "static-backend-mariadb"
+    spec:
+      containers:
+        - name: mariadb
+          image: mariadb:latest
+          ports:
+            - containerPort: 3315
+              name: mariadb
+          volumeMounts:
+            - name: mariadb-storage
+              mountPath: /var/lib/mysql
+            - name: init-script
+              mountPath: /initdb.d/init.sql
+              subPath: init.sql
+            - name: config-volume
+              mountPath: /etc/mysql/my.cnf
+              subPath: my.cnf
+          env:
+            - name: MYSQL_ALLOW_EMPTY_PASSWORD
+              value: "yes"
+            - name: MYSQL_DATABASE
+              value: "eloqdb_test"
+            - name: MYSQL_USER
+              value: "mono"
+            - name: MYSQL_PASSWORD
+              value: "mono"
+          resources:
+            requests:
+              memory: "500Mi"
+              cpu: "1"
+            limits:
+              memory: "500Mi"
+              cpu: "1"
+      volumes:
+        - name: config-volume
+          configMap:
+            name: mariadb-config
+        - name: init-script
+          configMap:
+            name: mariadb-init-scripts
+  volumeClaimTemplates:
+    - metadata:
+        name: mariadb-storage
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: 1Gi
+        storageClassName: ebs-sc-gp3
