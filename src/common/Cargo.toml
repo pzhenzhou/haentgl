@@ -26,6 +26,7 @@ procfs = { version = "0.16.0", default-features = false }
 libc = { version = "0.2" }
 
 [target.'cfg(target_os = "macos")'.dependencies]
-darwin-libproc = { git = "https://github.com/monographdb/darwin-libproc.git", rev = "f493b9a9db7d0ef6edb2ba6dbcac4bf56ec39342" }
+darwin-libproc = { git = "https://github.com/risingwavelabs/darwin-libproc.git", rev = "a502be24bd0971463f5bcbfe035a248d8ba503b7" }
+#darwin-libproc = { git = "https://github.com/monographdb/darwin-libproc.git", rev = "f493b9a9db7d0ef6edb2ba6dbcac4bf56ec39342" }
 libc = { version = "0.2.149" }
 mach2 = "0.4"

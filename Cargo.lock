@@ -778,7 +778,7 @@ dependencies = [
 [[package]]
 name = "darwin-libproc"
 version = "0.2.0"
-source = "git+https://github.com/monographdb/darwin-libproc.git?rev=f493b9a9db7d0ef6edb2ba6dbcac4bf56ec39342#f493b9a9db7d0ef6edb2ba6dbcac4bf56ec39342"
+source = "git+https://github.com/risingwavelabs/darwin-libproc.git?rev=a502be24bd0971463f5bcbfe035a248d8ba503b7#a502be24bd0971463f5bcbfe035a248d8ba503b7"
 dependencies = [
  "darwin-libproc-sys",
  "libc",
@@ -788,7 +788,7 @@ dependencies = [
 [[package]]
 name = "darwin-libproc-sys"
 version = "0.2.0"
-source = "git+https://github.com/monographdb/darwin-libproc.git?rev=f493b9a9db7d0ef6edb2ba6dbcac4bf56ec39342#f493b9a9db7d0ef6edb2ba6dbcac4bf56ec39342"
+source = "git+https://github.com/risingwavelabs/darwin-libproc.git?rev=a502be24bd0971463f5bcbfe035a248d8ba503b7#a502be24bd0971463f5bcbfe035a248d8ba503b7"
 
 [[package]]
 name = "dashmap"
