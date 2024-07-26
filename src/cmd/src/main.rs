@@ -1,7 +1,7 @@
 use clap::Parser;
 use common::metrics::process_unix::ProcessRecorder;
 use common::ShutdownMessage;
-use proxy::backend::router::new_backend_router_v2;
+use proxy::backend::router::new_backend_router;
 use proxy::cp;
 use proxy::cp::active_users::UserActivityWindow;
 use proxy::server::auth::authenticator::MonoAuthenticator;
@@ -152,7 +152,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     start_metrics_and_rest(proxy_config.clone(), &runtime, &shutdown_rx);
     runtime.block_on(async {
         let backend_options = proxy_config.new_backend_opts();
-        let router = new_backend_router_v2(&proxy_config).await;
+        let router = new_backend_router(&proxy_config).await;
 
         let mut proxy_srv = HaentglServer::new(
             backend_options,

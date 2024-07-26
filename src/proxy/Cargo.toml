@@ -14,7 +14,6 @@ anyhow = { workspace = true }
 async-trait = "0.1.80"
 bitflags = "2.6.0"
 byteorder = "1"
-chitchat = { git = "https://github.com/quickwit-oss/chitchat.git", rev = "d039699" }
 chrono = "0.4"
 clap = { version = "4", features = ["derive"] }
 coarsetime = "0.1.29"

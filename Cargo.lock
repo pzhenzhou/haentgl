@@ -524,23 +524,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "613afe47fcd5fac7ccf1db93babcb082c5994d996f20b8b159f2ad1658eb5724"
 
 [[package]]
-name = "chitchat"
-version = "0.8.0"
-source = "git+https://github.com/quickwit-oss/chitchat.git?rev=d039699#d03969982e1c199aa05cb8e4f86d8d83118057ff"
-dependencies = [
- "anyhow",
- "async-trait",
- "bytes",
- "itertools 0.12.1",
- "rand",
- "serde",
- "tokio",
- "tokio-stream",
- "tracing",
- "zstd",
-]
-
-[[package]]
 name = "chrono"
 version = "0.4.38"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2135,7 +2118,6 @@ dependencies = [
  "async-trait",
  "bitflags 2.6.0",
  "byteorder",
- "chitchat",
  "chrono",
  "clap",
  "coarsetime",

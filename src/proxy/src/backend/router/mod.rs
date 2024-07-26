@@ -113,7 +113,7 @@ pub trait BackendRouter: Send + Sync {
     ) -> Result<VecDeque<BackendInstance>, Error>;
 }
 
-pub async fn new_backend_router_v2(proxy_args: &ProxyServerArgs) -> BackendRouterTrait {
+pub async fn new_backend_router(proxy_args: &ProxyServerArgs) -> BackendRouterTrait {
     let be_router = proxy_args.router_type();
     if let Some(router) = be_router {
         match router {
