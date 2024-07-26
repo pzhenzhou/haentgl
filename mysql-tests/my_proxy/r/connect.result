@@ -1,0 +1,202 @@
+SET global secure_auth=0;
+connect  con1,localhost,root,,mysql;
+show tables;
+Tables_in_mysql
+column_stats
+columns_priv
+db
+event
+func
+general_log
+global_priv
+gtid_slave_pos
+help_category
+help_keyword
+help_relation
+help_topic
+index_stats
+innodb_index_stats
+innodb_table_stats
+plugin
+proc
+procs_priv
+proxies_priv
+roles_mapping
+servers
+slow_log
+table_stats
+tables_priv
+time_zone
+time_zone_leap_second
+time_zone_name
+time_zone_transition
+time_zone_transition_type
+transaction_registry
+user
+connect  con2,localhost,root,,test;
+show tables;
+Tables_in_test
+connect(localhost,root,z,test2,BACKEND_PORT,/tmp/mysqld.sock);
+connect  fail_con,localhost,root,z,test2;
+ERROR 28000: Access denied for user 'root'@'192.168.1.4' (using password: YES)
+connect(localhost,root,z,test,BACKEND_PORT,/tmp/mysqld.sock);
+connect  fail_con,localhost,root,z,;
+ERROR 28000: Access denied for user 'root'@'192.168.1.4' (using password: YES)
+connection default;
+disconnect con1;
+disconnect con2;
+grant ALL on *.* to test@localhost identified by "gambling";
+grant ALL on *.* to test@localhost identified by "gambling";
+connect  con3,localhost,test,gambling,mysql;
+show tables;
+Tables_in_mysql
+column_stats
+columns_priv
+db
+event
+func
+general_log
+global_priv
+gtid_slave_pos
+help_category
+help_keyword
+help_relation
+help_topic
+index_stats
+innodb_index_stats
+innodb_table_stats
+plugin
+proc
+procs_priv
+proxies_priv
+roles_mapping
+servers
+slow_log
+table_stats
+tables_priv
+time_zone
+time_zone_leap_second
+time_zone_name
+time_zone_transition
+time_zone_transition_type
+transaction_registry
+user
+connect  con4,localhost,test,gambling,test;
+show tables;
+Tables_in_test
+connection default;
+disconnect con3;
+disconnect con4;
+connect(localhost,test,,test2,BACKEND_PORT,/tmp/mysqld.sock);
+connect  fail_con,localhost,test,,test2;
+ERROR 28000: Access denied for user 'test'@'192.168.1.4' (using password: NO)
+connect(localhost,test,,"",BACKEND_PORT,/tmp/mysqld.sock);
+connect  fail_con,localhost,test,,'""';
+ERROR 28000: Access denied for user 'test'@'192.168.1.4' (using password: NO)
+connect(localhost,test,zorro,test2,BACKEND_PORT,/tmp/mysqld.sock);
+connect  fail_con,localhost,test,zorro,test2;
+ERROR 28000: Access denied for user 'test'@'192.168.1.4' (using password: YES)
+connect(localhost,test,zorro,test,BACKEND_PORT,/tmp/mysqld.sock);
+connect  fail_con,localhost,test,zorro,;
+ERROR 28000: Access denied for user 'test'@'192.168.1.4' (using password: YES)
+# switching from mysql.global_priv to mysql.user
+update mysql.user set plugin="", authentication_string="", password=old_password("gambling2") where user=_binary"test";
+flush privileges;
+show grants for test@localhost;
+Grants for test@localhost
+GRANT ALL PRIVILEGES ON *.* TO `test`@`localhost` IDENTIFIED BY PASSWORD '2f27438961437573'
+update mysql.user set plugin='mysql_old_password' where user='test';
+flush privileges;
+show grants for test@localhost;
+Grants for test@localhost
+GRANT ALL PRIVILEGES ON *.* TO `test`@`localhost` IDENTIFIED BY PASSWORD '2f27438961437573'
+connect  con10,localhost,test,gambling2,;
+connect  con5,localhost,test,gambling2,mysql;
+set password="";
+set password='gambling3';
+ERROR HY000: Password hash should be a 41-digit hexadecimal number
+set password=old_password('gambling3');
+show tables;
+Tables_in_mysql
+column_stats
+columns_priv
+db
+event
+func
+general_log
+global_priv_bak
+gtid_slave_pos
+help_category
+help_keyword
+help_relation
+help_topic
+index_stats
+innodb_index_stats
+innodb_table_stats
+plugin
+proc
+procs_priv
+proxies_priv
+roles_mapping
+servers
+slow_log
+table_stats
+tables_priv
+time_zone
+time_zone_leap_second
+time_zone_name
+time_zone_transition
+time_zone_transition_type
+transaction_registry
+user
+user_bak
+connect  con6,localhost,test,gambling3,test;
+show tables;
+Tables_in_test
+connection default;
+disconnect con10;
+disconnect con5;
+disconnect con6;
+connect(localhost,test,,test2,BACKEND_PORT,/tmp/mysqld.sock);
+connect  fail_con,localhost,test,,test2;
+ERROR 28000: Access denied for user 'test'@'192.168.1.4' (using password: NO)
+connect(localhost,test,,test,BACKEND_PORT,/tmp/mysqld.sock);
+connect  fail_con,localhost,test,,;
+ERROR 28000: Access denied for user 'test'@'192.168.1.4' (using password: NO)
+connect(localhost,test,zorro,test2,BACKEND_PORT,/tmp/mysqld.sock);
+connect  fail_con,localhost,test,zorro,test2;
+ERROR 28000: Access denied for user 'test'@'192.168.1.4' (using password: YES)
+connect(localhost,test,zorro,test,BACKEND_PORT,/tmp/mysqld.sock);
+connect  fail_con,localhost,test,zorro,;
+ERROR 28000: Access denied for user 'test'@'192.168.1.4' (using password: YES)
+# switching back from mysql.user to mysql.global_priv
+delete from mysql.user where user=_binary"test";
+CREATE USER mysqltest_up1 IDENTIFIED VIA mysql_native_password using '*E8D46CE25265E545D225A8A6F1BAF642FEBEE5CB';
+CREATE USER mysqltest_up2 IDENTIFIED VIA mysql_old_password using '09301740536db389';
+connect(localhost,mysqltest_up1,foo,test,MASTER_PORT,/tmp/mysqld.sock);
+connect pcon1,localhost,mysqltest_up1,foo,,$BACKEND_PORT,;
+ERROR 28000: Access denied for user 'mysqltest_up1'@'192.168.1.4' (using password: YES)
+select user(), current_user();
+user()	current_user()
+root@192.168.1.4	root@%
+connect(localhost,mysqltest_up2,newpw,test,MASTER_PORT,/tmp/mysqld.sock);
+connect pcon3,localhost,mysqltest_up2,newpw,,$BACKEND_PORT,;
+ERROR 28000: Access denied for user 'mysqltest_up2'@'192.168.1.4' (using password: YES)
+select user(), current_user();
+user()	current_user()
+root@192.168.1.4	root@%
+connect(localhost,mysqltest_nouser,newpw,test,MASTER_PORT,/tmp/mysqld.sock);
+connect pcon5,localhost,mysqltest_nouser,newpw,,$BACKEND_PORT,;
+ERROR 28000: Access denied for user 'mysqltest_nouser'@'192.168.1.4' (using password: YES)
+connect(localhost,mysqltest_nouser,,test,MASTER_PORT,/tmp/mysqld.sock);
+connect pcon5,localhost,mysqltest_nouser,,,$BACKEND_PORT,;
+ERROR 28000: Access denied for user 'mysqltest_nouser'@'192.168.1.4' (using password: NO)
+connection default;
+DROP USER mysqltest_up1@'%';
+DROP USER mysqltest_up2@'%';
+DROP USER test;
+CREATE USER 'test'@'%' IDENTIFIED BY 'gambling';
+GRANT ALL PRIVILEGES ON *.* TO 'test'@'%' IDENTIFIED BY 'gambling';
+FLUSH PRIVILEGES;
+disconnect default;
+# End of 10.4 tests

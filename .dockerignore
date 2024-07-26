@@ -1,0 +1,46 @@
+# macOS
+**/*.DS_Store
+
+# Visual Studio Code
+.vscode/
+.devcontainer/
+
+# JetBrains
+.idea/
+*.iml
+
+# CLion
+cmake-build-debug/
+/cmake-build-wsl_profile/
+
+# build
+*.exe
+*.app
+build/
+
+# Rust
+src/**/target
+src/**/target_tarpaulin
+target/
+src/proto/
+src/proxy_prost/src/*.rs
+!src/proxy_prost/src/lib.rs
+!src/proxy_prost/src/imp.rs
+**/file_descriptor_set.bin
+# runtime log
+src/log/
+# srcy-tags
+**/srcy-tags.vi
+
+# ctags
+**/tags
+
+logs/
+log/
+
+.bin/
+
+.git/
+#docker/
+docs/
+.dockerignore

@@ -1,0 +1,43 @@
+---
+version: "3"
+services:
+  mysql-backend:
+    container_name: mariadb-latest
+    hostname: mariadb_backend
+    image: "${BACKEND_IMAGE}"
+    networks:
+      my-proxy_network:
+        ipv4_address: 192.168.1.2
+    ports:
+      - '3316:3306'
+    volumes:
+      - '${BACKEND_DATA_DIR}:/var/lib/mysql'
+      - './scripts/init.sql:/docker-entrypoint-initdb.d/init.sql'
+    environment:
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+      MYSQL_DATABASE: mono_db
+      MYSQL_USER: test
+      MYSQL_PASSWORD: gambling
+  my-proxy:
+    container_name: my-proxy
+    image: "${MY_PROXY_IMAGE}"
+    networks:
+      my-proxy_network:
+        ipv4_address: 192.168.1.4
+    hostname: my-proxy
+    environment:
+      WORKS: 4
+      PORT: 3310
+      BACKEND_ADDR: "192.168.1.2:3306"
+    ports:
+      - "3310:3310"
+    depends_on:
+      - mysql-backend
+
+networks:
+  my-proxy_network:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 192.168.1.0/24
