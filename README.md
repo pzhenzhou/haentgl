@@ -7,6 +7,13 @@ serves as a unified access layer for serverless databases, providing seamless co
 connection maintenance, and topology awareness. Additionally, it includes control plane functions such as overload
 control and database cluster state observation.
 
+## Project status
+
+### Not implemented at the moment
+
+1. overload control.
+2. connection migration.
+
 ## Features
 
 ### Core Functions
