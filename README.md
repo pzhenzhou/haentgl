@@ -1,5 +1,7 @@
 ## Haentgl
 
+> haentgl is a combination of Hegel + Kant. Pronunciation: /ˈhæntəgəl/
+
 Haentgl is a Rust-based proxy designed for MySQL databases, oriented towards cloud serverless environments. It
 serves as a unified access layer for serverless databases, providing seamless command forwarding, cluster autodiscovery,
 connection maintenance, and topology awareness. Additionally, it includes control plane functions such as overload
