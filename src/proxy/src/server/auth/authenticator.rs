@@ -25,10 +25,9 @@ use tracing::{debug, warn};
 
 const AUTH_SWITCH_REQUEST: u8 = 0xfe;
 
-#[derive(Debug)]
-pub struct MonoAuthenticator;
+pub struct ProxyAuthenticator;
 
-impl MonoAuthenticator {
+impl ProxyAuthenticator {
     async fn process_auth_switch_plugin<R, W>(
         &self,
         client_seq: u8,
@@ -119,7 +118,7 @@ fn reset_handshake_plugin(
 }
 
 #[async_trait]
-impl Authenticator for MonoAuthenticator {
+impl Authenticator for ProxyAuthenticator {
     async fn continue_auth<R, W>(
         &self,
         backend_writer: &mut PacketWriter<OwnedWriteHalf>,
@@ -157,7 +156,7 @@ impl Authenticator for MonoAuthenticator {
             client_writer,
             client_reader,
         )
-        .await
+            .await
     }
 
     async fn initial_handshake<R, W>(
@@ -182,7 +181,7 @@ impl Authenticator for MonoAuthenticator {
             server_version_bytes,
             tls_conf,
         )
-        .await?;
+            .await?;
         #[cfg(not(feature = "tls"))]
         writers::write_initial_handshake(client_writer, conn_id, scramble, server_version_bytes)
             .await?;
@@ -198,7 +197,7 @@ impl Authenticator for MonoAuthenticator {
                 "peer terminated connection".as_bytes(),
                 client_writer,
             )
-            .await?;
+                .await?;
             Err(Error::new(
                 std::io::ErrorKind::PermissionDenied,
                 "peer terminated connection",
@@ -235,6 +234,6 @@ impl Authenticator for MonoAuthenticator {
             client_writer,
             client_reader,
         )
-        .await
+            .await
     }
 }

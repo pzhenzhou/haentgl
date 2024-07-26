@@ -4,7 +4,7 @@ use common::ShutdownMessage;
 use proxy::backend::router::new_backend_router;
 use proxy::cp;
 use proxy::cp::active_users::UserActivityWindow;
-use proxy::server::auth::authenticator::MonoAuthenticator;
+use proxy::server::auth::authenticator::ProxyAuthenticator;
 use proxy::server::haentgl_server::HaentglServer;
 use proxy::server::proxy_cli_args::ProxyServerArgs;
 use std::str::FromStr;
@@ -157,7 +157,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut proxy_srv = HaentglServer::new(
             backend_options,
             router,
-            MonoAuthenticator,
+            ProxyAuthenticator,
         );
         proxy_srv.initialize().await.unwrap();
 
