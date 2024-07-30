@@ -3,20 +3,17 @@ use crate::http_handler::*;
 use anyhow::anyhow;
 use axum::routing::get;
 use axum::Router;
-// use once_cell::sync::OnceCell;
 use std::future::Future;
-// use std::time::Duration;
-// use tower_http::timeout::TimeoutLayer;
 use common::profiling::head_profiler::{HeapProfileOpts, HeapProfiler};
 use common::profiling::prof::Prof;
 use tower_http::trace::{DefaultMakeSpan, TraceLayer};
 
-pub struct MonoProxyRest;
+pub struct HaentglProxyRest;
 
 #[derive(Clone)]
-pub struct MonoProxyRestState;
+pub struct HaentglProxyRestState;
 
-impl MonoProxyRestState {
+impl HaentglProxyRestState {
     pub fn cpu_profile(&self) -> &'static Prof {
         static CPU_PROF: std::sync::OnceLock<Prof> = std::sync::OnceLock::new();
 
@@ -30,7 +27,7 @@ impl MonoProxyRestState {
     }
 }
 
-impl MonoProxyRest {
+impl HaentglProxyRest {
     pub async fn start_server<F>(
         addr: String,
         port: u16,
@@ -38,9 +35,9 @@ impl MonoProxyRest {
         shutdown: F,
     ) -> anyhow::Result<()>
     where
-        F: Future<Output = ()> + Send + 'static,
+        F: Future<Output=()> + Send + 'static,
     {
-        let app_state = MonoProxyRestState {};
+        let app_state = HaentglProxyRestState {};
         let mut app = Router::new()
             .route("/", get("Hi I'm MonoProxyREST"))
             .route("/mem_dump", get(dump_mem_profile))

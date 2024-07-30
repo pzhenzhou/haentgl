@@ -1,4 +1,4 @@
-use crate::http_server::MonoProxyRestState;
+use crate::http_server::HaentglProxyRestState;
 use axum::extract::{Path, Query, State};
 use axum::http::header::CONTENT_TYPE;
 use axum::response::IntoResponse;
@@ -63,7 +63,7 @@ pub async fn list_cpu_profile(Query(params): Query<HashMap<String, String>>) -> 
 }
 
 pub async fn stop_cpu_prof(
-    State(state): State<MonoProxyRestState>,
+    State(state): State<HaentglProxyRestState>,
 ) -> Json<HashMap<String, String>> {
     let cpu_prof = state.cpu_profile();
     let stop_rs = match cpu_prof.stop() {
@@ -75,7 +75,7 @@ pub async fn stop_cpu_prof(
 
 pub async fn start_cpu_prof(
     Query(params): Query<HashMap<String, String>>,
-    State(state): State<MonoProxyRestState>,
+    State(state): State<HaentglProxyRestState>,
 ) -> Json<HashMap<String, String>> {
     let duration = params
         .get("duration")
@@ -144,7 +144,7 @@ pub async fn heap_analysis(Path(dump_path): Path<String>) {
 }
 
 pub async fn dump_mem_profile(
-    State(state): State<MonoProxyRestState>,
+    State(state): State<HaentglProxyRestState>,
 ) -> Json<HashMap<String, String>> {
     let mem_profiler_rs = state.memory_profile();
     if let Ok(mem_prof) = mem_profiler_rs {

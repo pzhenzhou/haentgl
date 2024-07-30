@@ -96,7 +96,7 @@ fn start_metrics_and_rest(
         });
         let shutdown_rx_clone = Box::new(shutdown_rx.clone());
         runtime.spawn(async move {
-            web_service::http_server::MonoProxyRest::start_server(
+            web_service::http_server::HaentglProxyRest::start_server(
                 "0.0.0.0".to_string(),
                 http_port,
                 true,
@@ -108,7 +108,7 @@ fn start_metrics_and_rest(
     if proxy_config.enable_rest {
         let shutdown_rx_clone = Box::new(shutdown_rx.clone());
         runtime.spawn(async move {
-            web_service::http_server::MonoProxyRest::start_server(
+            web_service::http_server::HaentglProxyRest::start_server(
                 "0.0.0.0".to_string(),
                 http_port,
                 false,
