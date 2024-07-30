@@ -142,7 +142,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let works = proxy_config.works;
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
-        .thread_name("MONO_PROXY")
+        .thread_name("HAENTGL-PROXY")
         .worker_threads(works)
         .build()?;
 

@@ -182,8 +182,8 @@ mod tests {
         let tenant_key = crate::backend::prost::common_proto::TenantKey {
             region: "ap-northeast-1".to_string(),
             available_zone: "ap-northeast-1a".to_string(),
-            namespace: "mono-system-test".to_string(),
-            cluster_name: "cluster-name-1-XxxxxxxXXXXXX".to_string(),
+            namespace: "haentgl-system-test".to_string(),
+            cluster_name: "cluster-name-1-xxX".to_string(),
         };
 
         let encoded_tenant_key = crate::backend::encode_tenant_key(&tenant_key);

@@ -11,13 +11,13 @@ pub mod sys {
     const CGROUP_ROOT_HIERARCYHY: &str = "/sys/fs/cgroup";
     const LINUX_OS: &str = "linux";
     const DOCKER_ENV_PATH: &str = "/.dockerenv";
-    const CONTAINER_ENV: &str = "MONO_PROXY_CONTAINER";
+    const CONTAINER_ENV: &str = "SQL_PROXY_CONTAINER";
 
     pub const CGROUP_V2_CONTROLLER_LIST_PATH: &str = "/sys/fs/cgroup/cgroup.controllers";
 
     pub const KUBERNETES_SECRETS_PATH: &str = "/var/run/secrets/kubernetes.io";
 
-    const KUBERNETES_HOSTNAME_ENV: &str = "MONO_PROXY_POD_NAME";
+    const KUBERNETES_HOSTNAME_ENV: &str = "SQL_PROXY_POD_NAME";
 
     #[derive(Debug, Clone, Copy)]
     pub enum CollectResource {
@@ -180,7 +180,7 @@ pub mod cpu {
             None => Err(
                 std::io::Error::new(
                     std::io::ErrorKind::InvalidData,
-                    format!("Invalid format in Cgroup CPU interface file, path: {limit_path}, content: {cpu_limit_string}")
+                    format!("Invalid format in Cgroup CPU interface file, path: {limit_path}, content: {cpu_limit_string}"),
                 )
             ),
         }

@@ -39,7 +39,7 @@ impl HaentglProxyRest {
     {
         let app_state = HaentglProxyRestState {};
         let mut app = Router::new()
-            .route("/", get("Hi I'm MonoProxyREST"))
+            .route("/", get("Hi I'm Haentgl Proxy WebService"))
             .route("/mem_dump", get(dump_mem_profile))
             .route("/mem_prof_analysis/:dump_path", get(heap_analysis))
             .route("/start_cpu_prof", get(start_cpu_prof))
@@ -64,7 +64,7 @@ impl HaentglProxyRest {
         {
             Ok(_) => Ok(()),
             Err(e) => {
-                println!("Failed to start MonoProxyRest {e:?}");
+                println!("Failed to start Haentgl Proxy WebService {e:?}");
                 Err(anyhow!(e.to_string()))
             }
         }

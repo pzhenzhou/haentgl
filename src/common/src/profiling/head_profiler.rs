@@ -61,7 +61,7 @@ impl Default for HeapProfileOpts {
         HeapProfileOpts {
             auto_profile: Arc::new(AtomicBool::new(false)),
             tick: None,
-            profile_dir: "/tmp/mono_proxy_heap".to_string(),
+            profile_dir: "/tmp/sql_proxy_heap".to_string(),
             threshold: 0.7,
         }
     }
@@ -90,7 +90,7 @@ impl HeapProfiler {
         };
         if opt_prof {
             Err(anyhow!(
-                "opt.prof != ON please start the mono-proxy \
+                "opt.prof != ON please start the sql-proxy \
                 with proper MALLOC ENV. e.g. MALLOC_CONF=prof:true"
             ))
         } else {
@@ -113,7 +113,7 @@ impl HeapProfiler {
 
     pub fn dump_profile(&self) -> anyhow::Result<String> {
         let file_prefix = chrono::Local::now().format(HEAP_FILE_PREFIX);
-        let file_name = format!("{}.mono_proxy", file_prefix);
+        let file_name = format!("{}.sql_proxy", file_prefix);
         let profile_opts = self.profile_opts.read();
         let dir = &profile_opts.profile_dir;
         let file_path = Path::new(dir)

@@ -63,11 +63,11 @@ fn init_metrics() {
     match metrics::set_global_recorder(recorder) {
         Ok(_) => {
             init_process_metrics();
-            info!("MonoProxy init prometheus metrics context successfully!");
+            info!("SqlProxy init prometheus metrics context successfully!");
         }
         Err(e) => {
             warn!(
-                "MonoProxy init prometheus metrics context error.cause by {:?}",
+                "SqlProxy init prometheus metrics context error.cause by {:?}",
                 e.to_string()
             );
         }

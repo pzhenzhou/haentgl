@@ -45,7 +45,7 @@ impl Prof {
         let profile_path = PathBuf::from(profile_path);
         let starting = Arc::new(&self.starting);
         if fs::create_dir_all(&profile_path).is_ok() {
-            let prof_thread = thread::Builder::new().name("MONO_PROF_THD".to_string());
+            let prof_thread = thread::Builder::new().name("SQL_PROXY_PROF_THD".to_string());
             let _rs = prof_thread.spawn(move || loop {
                 debug!("ProxySrv CpuProfiler prof_sample running!");
                 if !starting.load(Ordering::Acquire) {
@@ -99,7 +99,6 @@ impl Prof {
 
 #[cfg(test)]
 mod tests {
-
     #[test]
     pub fn test_date_time_format() {
         let now_date = chrono::Local::now();

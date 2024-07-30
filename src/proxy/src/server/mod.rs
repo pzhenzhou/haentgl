@@ -39,7 +39,7 @@ macro_rules! parse_err_packet {
     };
 }
 
-// FIXME: update to monograph_db version
+// FIXME: may be get from cp.
 pub const DEFAULT_BACKEND_VERSION: &[u8] = b"11.1.2-MariaDB-1:11.1.2+maria~ubu2204";
 pub const PROXY_COM_METRIC_LABEL_KEY: &str = "proxy_com";
 pub const PROXY_CONN_METRIC_LABEL_KEY: &str = "proxy_conn";
@@ -105,12 +105,12 @@ pub fn default_capabilities() -> CapabilityFlags {
 }
 
 /// `ProxyServer` is the abstract core feature of the MySQL proxy server including:
-/// 1. Connect MySQL client with Backend (MonographDB), authenticate and forward commands.
+/// 1. Connect MySQL client with Backend (Backend Instance), authenticate and forward commands.
 /// 2. Serve as the access layer for Serverless to reduce the impact of Backend changes on customers,
 ///    including but not limited to - node upgrades, node downgrades, suspensions, and resumptions.
 #[async_trait]
 pub trait ProxyServer {
-    /// Route to an available MonographDB cluster backend and authenticate.
+    /// Route to an available Backend Instance cluster backend and authenticate.
     ///
     /// Returns the HandshakeResponse (client's handshake information)
     /// as well as the client's tcp reader (TcpStream reader)
@@ -125,7 +125,7 @@ pub trait ProxyServer {
         R: AsyncRead + Send + Unpin,
         W: AsyncWrite + Send + Unpin;
 
-    /// Forwards packets between the client and the MonographDB cluster.
+    /// Forwards packets between the client and the Backend.
     /// If the backend connection fails, it redirects to an available backend connection.
     async fn on_com<'a, R, W>(
         &self,

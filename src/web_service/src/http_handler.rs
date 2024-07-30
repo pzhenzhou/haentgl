@@ -41,7 +41,7 @@ pub async fn list_cpu_profile(Query(params): Query<HashMap<String, String>>) -> 
             }
             if let Some(file_name) = file.path().file_name() {
                 let file_name_string = file_name.to_os_string().into_string().unwrap();
-                debug!("MonoProxyRest list_cpu_profile = {file_name_string:?}");
+                debug!("HaentglProxyRest list_cpu_profile = {file_name_string:?}");
                 if file_name_string.starts_with("mp_cpu_") {
                     files.push(file_name_string);
                 }
@@ -83,7 +83,7 @@ pub async fn start_cpu_prof(
         .parse()
         .unwrap_or(60_u64);
 
-    let default_path = "/tmp/mono_proxy_cpu_prof/".to_string();
+    let default_path = "/tmp/sql_proxy_cpu_prof/".to_string();
     let profile_path = params.get("profile_path").unwrap_or(&default_path);
 
     let cpu_prof = state.cpu_profile();
@@ -101,14 +101,13 @@ pub async fn start_cpu_prof(
 
 pub async fn print_cpu_prof(Query(params): Query<HashMap<String, String>>) -> impl IntoResponse {
     if let Some(file_path_string) = params.get("profile_file") {
-        // let file_path_string = format!("/tmp/{mono_cpu_fg}");
-        let mono_cpu_fg_path = std::path::Path::new(file_path_string.as_str());
-        if mono_cpu_fg_path.exists() {
-            if let Ok(mut mono_cpu_fg_file) = File::open(mono_cpu_fg_path) {
-                let meta = mono_cpu_fg_file.metadata().unwrap();
+        let sql_cpu_fg_path = std::path::Path::new(file_path_string.as_str());
+        if sql_cpu_fg_path.exists() {
+            if let Ok(mut cpu_fg_file) = File::open(sql_cpu_fg_path) {
+                let meta = cpu_fg_file.metadata().unwrap();
                 let file_size = meta.len();
                 let mut file_buf = Vec::with_capacity(file_size as usize);
-                mono_cpu_fg_file
+                cpu_fg_file
                     .read_to_end(&mut file_buf)
                     .expect("Failed to read profile size");
                 (
@@ -120,14 +119,14 @@ pub async fn print_cpu_prof(Query(params): Query<HashMap<String, String>>) -> im
                 (
                     http::StatusCode::INTERNAL_SERVER_ERROR,
                     [(CONTENT_TYPE, "application/json")],
-                    format!("Failed to open {mono_cpu_fg_path:?} ").into_response(),
+                    format!("Failed to open {sql_cpu_fg_path:?} ").into_response(),
                 )
             }
         } else {
             (
                 http::StatusCode::BAD_REQUEST,
                 [(CONTENT_TYPE, "application/json")],
-                format!("{mono_cpu_fg_path:?} not exists.").into_response(),
+                format!("{sql_cpu_fg_path:?} not exists.").into_response(),
             )
         }
     } else {

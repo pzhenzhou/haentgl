@@ -127,7 +127,7 @@ pub fn sha1_2(bytes1: impl AsRef<[u8]>, bytes2: impl AsRef<[u8]>) -> [u8; 20] {
 /// 1. exchange the capabilities of client and server （setup TSL if requested）
 /// 2. Authenticate the client's user information
 ///
-/// Since the [MySQL connection lifecycle](https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_connection_lifecycle.html) requires MonoProxy authentication when MonoProxy enables
+/// Since the [MySQL connection lifecycle](https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_connection_lifecycle.html) requires SqlProxy authentication when SqlProxy enables
 /// connection pooling.
 #[async_trait]
 pub trait Authenticator: Send + Sync {

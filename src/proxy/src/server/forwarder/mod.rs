@@ -44,7 +44,7 @@ where
     }
 
     /// The packets from the client are sent to the backend of the proxy;
-    /// since MonoProxy has connection pooling, we need a special handle for ComQuit ComChangeUser
+    /// since SqlProxy has connection pooling, we need a special handle for ComQuit ComChangeUser
     /// because of the connection lifecycle management.
     async fn write_to_backend(
         &self,
@@ -62,13 +62,13 @@ where
                     client_capability,
                     &mut ParseBuf(&client_packet),
                 )
-                .unwrap();
+                    .unwrap();
                 let change_user_more_data = ComChangeUserMoreData::new(
                     handshake_response.collation,
                 )
-                .with_auth_plugin(Some(AuthPlugin::Other(Cow::from(
-                    UnKnowPluginName.as_ref().as_bytes(),
-                ))));
+                    .with_auth_plugin(Some(AuthPlugin::Other(Cow::from(
+                        UnKnowPluginName.as_ref().as_bytes(),
+                    ))));
 
                 let updated_change_user_com = com_change_user
                     .clone()
