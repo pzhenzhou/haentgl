@@ -1,13 +1,36 @@
 use crate::protocol::mysql::constants::CommandCode as ComInfo;
 use crate::protocol::mysql::packet::packet_reader::PacketReader;
 use crate::protocol::mysql::packet::packet_writer::PacketWriter;
+
+use hashbrown::HashMap;
 use mysql_common::constants::{CapabilityFlags, StatusFlags};
-use nom::bytes::complete::{tag, take};
-use nom::combinator::{map, rest};
-use nom::sequence::{preceded, tuple};
 use pin_project::pin_project;
-use std::collections::HashMap;
 use tokio::io::{AsyncRead, AsyncWrite};
+use winnow::binary::{le_u16, le_u32, le_u8};
+use winnow::combinator::{alt, preceded, rest};
+use winnow::prelude::*;
+use winnow::token::{literal, take, take_until};
+use winnow::{Parser, Partial};
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum Command<'a> {
+    Query(&'a [u8]),
+    ListFields(&'a [u8]),
+    Close(u32),
+    Prepare(&'a [u8]),
+    Init(&'a [u8]),
+    Execute {
+        stmt: u32,
+        params: &'a [u8],
+    },
+    SendLongData {
+        stmt: u32,
+        param: u16,
+        data: &'a [u8],
+    },
+    Ping,
+    Quit,
+}
 
 #[pin_project]
 pub struct PacketIO<R, W> {
@@ -115,30 +138,51 @@ impl HandshakeResponse {
         }
     }
 }
-pub fn eof_server_status(i: &[u8]) -> nom::IResult<&[u8], StatusFlags> {
+
+fn read_length_encoded_string(i: &[u8]) -> IResult<&[u8], &[u8]> {
+    let (input, len) = read_length_encoded_number(i)?;
+    take(len).parse_peek(input)
+}
+
+pub fn eof_server_status(i: &[u8]) -> IResult<&[u8], StatusFlags> {
     let status_flag_slice = &i[3..i.len()];
-    let (i, status_flags_code) = nom::number::complete::le_u16(status_flag_slice)?;
+    let (i, status_flags_code) = le_u16.parse_peek(status_flag_slice)?;
     Ok((i, StatusFlags::from_bits_truncate(status_flags_code)))
 }
 
-pub fn ok_packet(i: &[u8], capabilities: CapabilityFlags) -> nom::IResult<&[u8], OkPacket> {
-    let (i, header) = nom::number::complete::le_u8(i)?;
+pub fn read_length_encoded_number(i: &[u8]) -> IResult<&[u8], u64> {
+    let (i, b) = le_u8.parse_peek(i)?;
+    let r_size: usize = match b {
+        0xfb => return Ok((i, 0)),
+        0xfc => 2,
+        0xfd => 3,
+        0xfe => 8,
+        _ => return Ok((i, b as u64)),
+    };
+    let mut bytes = [0u8; 8];
+    let (i, b) = take(r_size).parse_peek(i)?;
+    bytes[..r_size].copy_from_slice(b);
+    Ok((i, u64::from_le_bytes(bytes)))
+}
+
+pub fn ok_packet(i: &[u8], capabilities: CapabilityFlags) -> winnow::IResult<&[u8], OkPacket> {
+    let (i, header) = le_u8.parse_peek(i)?;
     let (i, affected_rows) = read_length_encoded_number(i)?;
     let (i, last_insert_id) = read_length_encoded_number(i)?;
-    let (i, status_flags_value) = nom::number::complete::le_u16(i)?;
+    let (i, status_flags_value) = le_u16.parse_peek(i)?;
 
     let status_flags = StatusFlags::from_bits_retain(status_flags_value);
     // info!("from bytes to OKPacket header={header},status_flag={status_flags:?}");
-    let (i, warnings) = nom::number::complete::le_u16(i)?;
+    let (i, warnings) = le_u16.parse_peek(i)?;
     let (info, session_state_info) =
         if !i.is_empty() && capabilities.contains(CapabilityFlags::CLIENT_SESSION_TRACK) {
             let (i, info_size) = read_length_encoded_number(i)?;
-            let (i, info) = nom::bytes::complete::take(info_size)(i)?;
+            let (i, info) = take(info_size).parse_peek(i)?;
 
             let session_state_info =
                 if status_flags.contains(StatusFlags::SERVER_SESSION_STATE_CHANGED) {
                     let (i, s_t_size) = read_length_encoded_number(i)?;
-                    let (_i, session_state_info) = nom::bytes::complete::take(s_t_size)(i)?;
+                    let (_i, session_state_info) = take(s_t_size).parse_peek(i)?;
                     std::str::from_utf8(session_state_info).unwrap_or("")
                 } else {
                     ""
@@ -165,25 +209,23 @@ pub fn ok_packet(i: &[u8], capabilities: CapabilityFlags) -> nom::IResult<&[u8],
     ))
 }
 
-// mysql handshake response:
-// https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_connection_phase_packets_protocol_handshake_response.html
 pub fn client_handshake_response(
     i: &[u8],
     is_after_tls: bool,
-) -> nom::IResult<&[u8], HandshakeResponse> {
-    let (i, capability_flags) = nom::number::complete::le_u16(i)?;
+) -> IResult<&[u8], HandshakeResponse> {
+    let (i, capability_flags) = le_u16.parse_peek(i)?;
     let mut capabilities = CapabilityFlags::from_bits_truncate(capability_flags as u32);
     if capabilities.contains(CapabilityFlags::CLIENT_PROTOCOL_41) {
         // HandshakeResponse41
-        let (i, cap2) = nom::number::complete::le_u16(i)?;
+        let (i, cap2) = le_u16.parse_peek(i)?;
         let cap = (cap2 as u32) << 16 | capability_flags as u32;
 
         capabilities = CapabilityFlags::from_bits_truncate(cap);
 
-        let (i, max_packet_len) = nom::number::complete::le_u32(i)?;
-        let (i, collation) = nom::bytes::complete::take(1u8)(i)?;
+        let (i, max_packet_len) = le_u32.parse_peek(i)?;
+        let (i, collation) = take(1u8).parse_peek(i)?;
 
-        let (i, _) = nom::bytes::complete::take(23u8)(i)?;
+        let (i, _) = take(23u8).parse_peek(i)?;
 
         if !is_after_tls && capabilities.contains(CapabilityFlags::CLIENT_SSL) {
             return Ok((
@@ -203,8 +245,8 @@ pub fn client_handshake_response(
         }
 
         let (i, username) = if is_after_tls || !capabilities.contains(CapabilityFlags::CLIENT_SSL) {
-            let (i, user) = nom::bytes::complete::take_until(&b"\0"[..])(i)?;
-            let (i, _) = tag(b"\0")(i)?;
+            let (i, user) = take_until(1.., "\0").parse_peek(i)?;
+            let (i, _) = literal(b"\0").parse_peek(i)?;
             (i, Some(user.to_owned()))
         } else {
             (i, None)
@@ -212,18 +254,18 @@ pub fn client_handshake_response(
         let (i, auth_response) =
             if capabilities.contains(CapabilityFlags::CLIENT_PLUGIN_AUTH_LENENC_CLIENT_DATA) {
                 let (i, size) = read_length_encoded_number(i)?;
-                take(size)(i)?
+                take(size).parse_peek(i)?
             } else if capabilities.contains(CapabilityFlags::CLIENT_SECURE_CONNECTION) {
-                let (i, size) = nom::number::complete::le_u8(i)?;
-                take(size)(i)?
+                let (i, size) = le_u8.parse_peek(i)?;
+                take(size).parse_peek(i)?
             } else {
-                nom::bytes::complete::take_until(&b"\0"[..])(i)?
+                take_until(1.., "\0").parse_peek(i)?
             };
 
         let (i, db) =
             if capabilities.contains(CapabilityFlags::CLIENT_CONNECT_WITH_DB) && !i.is_empty() {
-                let (i, db) = nom::bytes::complete::take_until(&b"\0"[..])(i)?;
-                let (i, _) = tag(b"\0")(i)?;
+                let (i, db) = take_until(1.., "\0").parse_peek(i)?;
+                let (i, _) = literal(b"\0").parse_peek(i)?;
                 (i, Some(db))
             } else {
                 (i, None)
@@ -231,9 +273,9 @@ pub fn client_handshake_response(
 
         let (i, auth_plugin) =
             if capabilities.contains(CapabilityFlags::CLIENT_PLUGIN_AUTH) && !i.is_empty() {
-                let (i, auth_plugin) = nom::bytes::complete::take_until(&b"\0"[..])(i)?;
+                let (i, auth_plugin) = take_until(1.., "\0").parse_peek(i)?;
 
-                let (i, _) = tag(b"\0")(i)?;
+                let (i, _) = literal("\0").parse_peek(i)?;
                 (i, auth_plugin)
             } else {
                 (i, &b""[..])
@@ -242,12 +284,13 @@ pub fn client_handshake_response(
         let (i, connect_attributes) =
             if capabilities.contains(CapabilityFlags::CLIENT_CONNECT_ATTRS) && !i.is_empty() {
                 let (i, data_len) = read_length_encoded_number(i)?;
-                let (i, data) = take(data_len)(i)?;
+                let (i, data) = take(data_len).parse_peek(i)?;
                 let mut input = data;
                 let mut connect_attributes = HashMap::new();
                 while !input.is_empty() {
-                    let (remaining, (k, v)) =
-                        tuple((read_length_encoded_string, read_length_encoded_string))(input)?;
+                    let (remaining, k) = read_length_encoded_string(input)?;
+                    // Parse value
+                    let (remaining, v) = read_length_encoded_string(remaining)?;
                     let conn_attr_key = std::str::from_utf8(k).unwrap().to_string();
                     let conn_attr_val = std::str::from_utf8(v).unwrap().to_string();
                     connect_attributes.insert(conn_attr_key, conn_attr_val);
@@ -274,19 +317,19 @@ pub fn client_handshake_response(
         ))
     } else {
         // HandshakeResponse320
-        let (i, max_packet_len_v1) = nom::number::complete::le_u16(i)?;
-        let (i, max_packet_len_v2) = nom::number::complete::le_u8(i)?;
+        let (i, max_packet_len_v1) = le_u16.parse_peek(i)?;
+        let (i, max_packet_len_v2) = le_u8.parse_peek(i)?;
         let max_packet_len = (max_packet_len_v2 as u32) << 16 | max_packet_len_v1 as u32;
-        let (i, username) = nom::bytes::complete::take_until(&b"\0"[..])(i)?;
-        let (i, _) = tag(b"\0")(i)?;
+        let (i, username) = take_until(1.., "\0").parse_peek(i)?;
+        let (i, _) = literal(b"\0").parse_peek(i)?;
 
         let (i, auth_response, db) =
             if capabilities.contains(CapabilityFlags::CLIENT_CONNECT_WITH_DB) {
-                let (i, auth_response) = tag(b"\0")(i)?;
-                let (i, _) = tag(b"\0")(i)?;
+                let (i, auth_response) = literal(b"\0").parse_peek(i)?;
+                let (i, _) = literal(b"\0").parse_peek(i)?;
 
-                let (i, db) = tag(b"\0")(i)?;
-                let (i, _) = tag(b"\0")(i)?;
+                let (i, db) = literal(b"\0").parse_peek(i)?;
+                let (i, _) = literal(b"\0").parse_peek(i)?;
 
                 (i, auth_response, Some(db))
             } else {
@@ -310,116 +353,47 @@ pub fn client_handshake_response(
     }
 }
 
-fn read_length_encoded_string(i: &[u8]) -> nom::IResult<&[u8], &[u8]> {
-    let (input, len) = read_length_encoded_number(i)?;
-    take(len)(input)
+fn send_long_data(i: Partial<&[u8]>) -> IResult<Partial<&[u8]>, Command<'_>> {
+    let (remaining, stmt) = le_u32.parse_peek(i)?;
+    let (remaining, param) = le_u16.parse_peek(remaining)?;
+    let data = *remaining; // Get the remaining data slice
+    Ok((remaining, Command::SendLongData { stmt, param, data }))
 }
 
-fn read_length_encoded_number(i: &[u8]) -> nom::IResult<&[u8], u64> {
-    let (i, b) = nom::number::complete::le_u8(i)?;
-    let r_size: usize = match b {
-        0xfb => return Ok((i, 0)),
-        0xfc => 2,
-        0xfd => 3,
-        0xfe => 8,
-        _ => return Ok((i, b as u64)),
-    };
-    let mut bytes = [0u8; 8];
-    let (i, b) = take(r_size)(i)?;
-    bytes[..r_size].copy_from_slice(b);
-    Ok((i, u64::from_le_bytes(bytes)))
+fn execute(i: Partial<&[u8]>) -> IResult<Partial<&[u8]>, Command<'_>> {
+    let (remaining, stmt) = le_u32.parse_peek(i)?;
+    let (remaining, _flags) = take(1u8).parse_peek(remaining)?;
+    let (remaining, _iterations) = le_u32.parse_peek(remaining)?;
+    let params = *remaining;
+    Ok((remaining, Command::Execute { stmt, params }))
 }
 
-#[derive(Debug, PartialEq, Eq)]
-pub enum Command<'a> {
-    Query(&'a [u8]),
-    ListFields(&'a [u8]),
-    Close(u32),
-    Prepare(&'a [u8]),
-    Init(&'a [u8]),
-    Execute {
-        stmt: u32,
-        params: &'a [u8],
-    },
-    SendLongData {
-        stmt: u32,
-        param: u16,
-        data: &'a [u8],
-    },
-    Ping,
-    Quit,
-}
-
-pub fn execute(i: &[u8]) -> nom::IResult<&[u8], Command<'_>> {
-    let (i, stmt) = nom::number::complete::le_u32(i)?;
-    let (i, _flags) = nom::bytes::complete::take(1u8)(i)?;
-    let (i, _iterations) = nom::number::complete::le_u32(i)?;
-    Ok((&[], Command::Execute { stmt, params: i }))
-}
-
-pub fn send_long_data(i: &[u8]) -> nom::IResult<&[u8], Command<'_>> {
-    let (i, stmt) = nom::number::complete::le_u32(i)?;
-    let (i, param) = nom::number::complete::le_u16(i)?;
-    Ok((
-        &[],
-        Command::SendLongData {
-            stmt,
-            param,
-            data: i,
-        },
-    ))
-}
-
-pub fn from_packet(pkt: &[u8]) -> nom::IResult<&[u8], Command<'_>> {
-    nom::branch::alt((
-        map(
-            // COM_QUERY
-            preceded(tag(&[ComInfo::ComQuery as u8]), rest),
-            Command::Query,
-        ),
-        map(
-            // COM_FIELD_LIST
-            preceded(tag(&[ComInfo::ComFieldList as u8]), rest),
-            Command::ListFields,
-        ),
-        map(
-            // COM_INIT_DB
-            preceded(tag(&[ComInfo::ComInitDB as u8]), rest),
-            Command::Init,
-        ),
-        map(
-            // COM_STMT_PREPARE
-            preceded(tag(&[ComInfo::ComStmtPrepare as u8]), rest),
-            Command::Prepare,
-        ),
-        // COM_STMT_EXECUTE
-        preceded(tag(&[ComInfo::ComStmtExecute as u8]), execute),
+pub fn from_packet(pkt: &[u8]) -> IResult<Partial<&[u8]>, Command<'_>> {
+    alt((
+        preceded(literal([ComInfo::ComQuery as u8]), rest).map(Command::Query),
+        preceded(literal([ComInfo::ComFieldList as u8]), rest).map(Command::ListFields),
+        preceded(literal([ComInfo::ComInitDB as u8]), rest).map(Command::Init),
+        preceded(literal([ComInfo::ComStmtPrepare as u8]), rest).map(Command::Prepare),
         preceded(
-            // COM_STMT_SEND_LONG_DATA
-            tag(&[ComInfo::ComStmtSendLongData as u8]),
-            send_long_data,
+            literal([ComInfo::ComStmtExecute as u8]),
+            winnow::unpeek(execute),
         ),
-        map(
-            // COM_STMT_CLOSE
-            preceded(
-                tag(&[ComInfo::ComStmtClose as u8]),
-                nom::number::complete::le_u32,
-            ),
-            Command::Close,
+        preceded(
+            literal([ComInfo::ComStmtSendLongData as u8]),
+            winnow::unpeek(send_long_data),
         ),
-        map(tag(&[ComInfo::ComQuit as u8]), |_| Command::Quit),
-        map(tag(&[ComInfo::ComPing as u8]), |_| Command::Ping),
-    ))(pkt)
+        preceded(literal([ComInfo::ComStmtClose as u8]), le_u32).map(Command::Close),
+        literal([ComInfo::ComQuit as u8]).map(|_| Command::Quit),
+        literal([ComInfo::ComPing as u8]).map(|_| Command::Ping),
+    ))
+    .parse_peek(Partial::new(pkt))
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::protocol::mysql::basic::client_handshake_response;
     use crate::protocol::mysql::charset::collation_names;
     use crate::protocol::mysql::packet::packet_reader::PacketReader;
-
-    use crate::protocol::mysql::basic::client_handshake_response;
-    #[allow(unused_imports)]
-    use bitflags::Flags;
     use mysql_common::constants::CapabilityFlags;
     use std::io::Cursor;
 

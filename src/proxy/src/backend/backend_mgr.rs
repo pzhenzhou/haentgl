@@ -1,9 +1,9 @@
 use crate::backend::pool::pooled_conn_mgr::PooledConnMgr;
 use crate::backend::pool::BackendPoolConfig;
 
-use crate::prost::common_proto::{ServiceStatus, TenantKey};
 use crate::backend::router::{BackendLoadBalancerType, BackendRouter, BackendRouterTrait};
 use crate::backend::{decode_tenant_key, test_tenant_key, BackendInstance};
+use crate::prost::common_proto::{ServiceStatus, TenantKey};
 use crate::protocol::mysql::basic::HandshakeResponse;
 
 use dashmap::DashMap;

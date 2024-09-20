@@ -15,6 +15,7 @@ keywords = ["Serverless", "Database", "MySql-Proxy"]
 
 [workspace.dependencies]
 anyhow = "1"
+hashbrown = { version = "0.14", features = ["serde"] }
 tikv-jemalloc-ctl = { git = "https://github.com/risingwavelabs/jemallocator.git", rev = "64a2d9" }
 tikv-jemallocator = { git = "https://github.com/risingwavelabs/jemallocator.git", features = [
     "profiling",

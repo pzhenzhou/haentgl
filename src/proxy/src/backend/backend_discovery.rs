@@ -143,10 +143,7 @@ impl BackendDiscovery {
                         id: my_node_id.clone(),
                     }),
                     force: true,
-                    label: std::collections::HashMap::from([(
-                        "eloqdata.com/module".to_string(),
-                        "eloqsql".to_string(),
-                    )]),
+                    label: std::collections::HashMap::default(),
                 };
                 yield sub_ns_request;
             } else {

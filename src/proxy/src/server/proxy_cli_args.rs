@@ -1,7 +1,7 @@
 use crate::backend::backend_mgr::BackendManagerOptions;
-use crate::prost::common_proto::{ClusterName, DBLocation, ServiceStatus};
 use crate::backend::router::{BackendLoadBalancerType, BackendRouterType};
 use crate::backend::BackendInstance;
+use crate::prost::common_proto::{ClusterName, DBLocation, ServiceStatus};
 
 use clap::{Parser, Subcommand};
 use itertools::Itertools;

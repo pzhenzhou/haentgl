@@ -5,6 +5,8 @@ pub mod writers;
 use crate::protocol::mysql::constants;
 use crate::protocol::mysql::constants::HeaderInfo;
 use std::ops::Deref;
+use winnow::token::take;
+use winnow::Parser;
 
 /// `Packet` Represents the packet format of the MySql wire protocol.
 /// The maximum size of a MySQL packet is 16M; if the data is >16M, it needs to be split
@@ -20,23 +22,23 @@ impl Packet {
 }
 
 #[inline]
-pub fn full_packet(i: &[u8]) -> nom::IResult<&[u8], (u8, &[u8])> {
-    let (i, _) = nom::bytes::complete::tag(&[0xff, 0xff, 0xff])(i)?;
-    let (i, seq) = nom::bytes::complete::take(1u8)(i)?;
-    let (i, bytes) = nom::bytes::complete::take(constants::MAX_PAYLOAD_LEN)(i)?;
+fn full_packet(i: &[u8]) -> winnow::IResult<&[u8], (u8, &[u8])> {
+    let (i, _) = winnow::token::literal(&[0xff, 0xff, 0xff]).parse_peek(i)?;
+    let (i, seq) = take(1u8).parse_peek(i)?;
+    let (i, bytes) = take(constants::MAX_PAYLOAD_LEN).parse_peek(i)?;
     Ok((i, (seq[0], bytes)))
 }
 
 #[inline]
-pub fn one_packet(i: &[u8]) -> nom::IResult<&[u8], (u8, &[u8])> {
-    let (i, length) = nom::number::complete::le_u24(i)?;
-    let (i, seq) = nom::bytes::complete::take(1u8)(i)?;
-    let (i, bytes) = nom::bytes::complete::take(length)(i)?;
+fn one_packet(i: &[u8]) -> winnow::IResult<&[u8], (u8, &[u8])> {
+    let (i, length) = winnow::binary::le_u24.parse_peek(i)?;
+    let (i, seq) = take(1u8).parse_peek(i)?;
+    let (i, bytes) = take(length).parse_peek(i)?;
     Ok((i, (seq[0], bytes)))
 }
 
 impl Packet {
-    fn extend(&mut self, bytes: &[u8]) {
+    pub fn extend(&mut self, bytes: &[u8]) {
         self.0.extend(bytes);
     }
 
@@ -47,7 +49,7 @@ impl Packet {
     }
 
     /// See: [MariaDB](https://mariadb.com/kb/en/result-set-packets/) or [MySQL](https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_basic_ok_packet.html)
-    /// Packet header is 0xfe and we need check the packet length.
+    /// Packet header is 0xfe, and we need check the packet length.
     /// return true OK packet after the result set when CLIENT_DEPRECATE_EOF is enabled
     pub fn is_result_set_eof_packet(&self) -> bool {
         let pkt_len = self.0.len();
@@ -88,37 +90,31 @@ impl Deref for Packet {
     }
 }
 
-pub fn packet(i: &[u8]) -> nom::IResult<&[u8], (u8, Packet)> {
-    nom::combinator::map(
-        nom::sequence::pair(
-            nom::multi::fold_many0(
-                full_packet,
-                || (0, None),
-                |(seq, pkt): (_, Option<Packet>), (nseq, p)| {
-                    let pkt = if let Some(mut pkt) = pkt {
-                        assert_eq!(nseq, seq + 1);
-                        pkt.extend(p);
-                        Some(pkt)
-                    } else {
-                        Some(Packet(Vec::from(p)))
-                    };
-                    (nseq, pkt)
-                },
-            ),
-            one_packet,
-        ),
-        move |(full, last)| {
-            let seq = last.0;
-            let pkt = if let Some(mut pkt) = full.1 {
-                assert_eq!(last.0, full.0 + 1);
-                pkt.extend(last.1);
-                pkt
-            } else {
-                Packet(Vec::from(last.1))
-            };
-            (seq, pkt)
-        },
-    )(i)
+pub fn packet(i: &[u8]) -> winnow::IResult<&[u8], (u8, Packet)> {
+    let mut input = i;
+    let mut full_packets = Vec::new();
+    // Manually parse zero or more full packets
+    while let Ok((next_input, result)) = full_packet(input) {
+        full_packets.push(result);
+        input = next_input;
+    }
+    // Parse one final packet
+    let (input, (last_seq, last_p)) = one_packet(input)?;
+    // Combine the full packets with the last packet
+    let mut pkt_data = Vec::new();
+    let mut prev_seq = None;
+    for (seq, p) in full_packets {
+        if let Some(prev_seq) = prev_seq {
+            // Ensure sequence numbers are consecutive
+            assert_eq!(seq, prev_seq + 1);
+        }
+        pkt_data.extend_from_slice(p);
+        prev_seq = Some(seq);
+    }
+
+    pkt_data.extend_from_slice(last_p);
+    let pkt = Packet(pkt_data);
+    Ok((input, (last_seq, pkt)))
 }
 
 #[cfg(test)]

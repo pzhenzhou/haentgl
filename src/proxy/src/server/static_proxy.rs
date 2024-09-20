@@ -1,6 +1,3 @@
-use crate::protocol::mysql::basic::{
-    client_handshake_response, from_packet, Command, HandshakeResponse, OkPacket,
-};
 use crate::protocol::mysql::error_codes::ErrorKind::ER_ACCESS_DENIED_NO_PASSWORD_ERROR;
 use crate::protocol::mysql::packet::packet_reader::PacketReader;
 use crate::protocol::mysql::packet::packet_writer::PacketWriter;
@@ -15,11 +12,15 @@ use std::borrow::BorrowMut;
 use std::io::Write;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use crate::protocol::mysql::basic::{
+    client_handshake_response, from_packet, Command, HandshakeResponse, OkPacket,
+};
 use crate::protocol::mysql::constants::AuthPluginName::AuthNativePassword;
 use crate::server::{default_capabilities, DEFAULT_BACKEND_VERSION};
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio_rustls::rustls;
 use tracing::{error, info, warn};
+use winnow::error::ErrMode;
 
 macro_rules! auth_pkt_reader {
     ($pkt_reader:expr, $err_msg:expr) => {{
@@ -34,17 +35,17 @@ macro_rules! client_handshake_err {
     ($handshake_rs:expr) => {{
         $handshake_rs
             .map_err(|e| match e {
-                nom::Err::Incomplete(_) => std::io::Error::new(
+                ErrMode::Incomplete(_) => std::io::Error::new(
                     std::io::ErrorKind::UnexpectedEof,
                     "backend sent incomplete handshake",
                 ),
-                nom::Err::Failure(nom_error) | nom::Err::Error(nom_error) => {
-                    if let nom::error::ErrorKind::Eof = nom_error.code {
+                ErrMode::Backtrack(winnow_error) | ErrMode::Cut(winnow_error) => {
+                    if let winnow::error::ErrorKind::Eof = winnow_error.kind {
                         std::io::Error::new(
                             std::io::ErrorKind::UnexpectedEof,
                             format!(
                                 "backend did not complete handshake; got {:?}",
-                                nom_error.input
+                                winnow_error.input
                             ),
                         )
                     } else {
@@ -52,7 +53,7 @@ macro_rules! client_handshake_err {
                             std::io::ErrorKind::InvalidData,
                             format!(
                                 "bad backend handshake; got {:?} ({:?})",
-                                nom_error.input, nom_error.code
+                                winnow_error.input, winnow_error.kind
                             ),
                         )
                     }

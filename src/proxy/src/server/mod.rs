@@ -8,8 +8,8 @@ use common::metrics::common_labels;
 use mysql_common::constants::CapabilityFlags;
 use std::sync::OnceLock;
 
+use hashbrown::HashMap;
 use rustls::server::ServerConfig;
-use std::collections::HashMap;
 use std::vec;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};

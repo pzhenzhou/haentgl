@@ -2,5 +2,5 @@
 
 // pub(crate) mod http_handler;
 pub mod http_server;
-mod proxy_handler;
 mod metrics_handler;
+mod proxy_handler;

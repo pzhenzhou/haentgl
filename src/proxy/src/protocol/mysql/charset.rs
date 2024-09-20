@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use hashbrown::HashMap;
 use std::sync::OnceLock;
 
 pub const DEFAULT_CHARSET: &str = "utf8mb4";

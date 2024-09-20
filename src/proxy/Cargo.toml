@@ -22,12 +22,13 @@ dashmap = "6.0.1"
 deadpool = { version = "0.12.1", features = ["managed"] }
 futures = { version = "0.3" }
 futures-async-stream = "0.2.11"
+hashbrown = { workspace = true }
 hex = "0.4.3"
 itertools = "0.13.0"
 mysql_common = { version = "0.32.0" }
 nanoid = "0.4.0"
 
-nom = "7"
+#nom = "7"
 num-derive = "0.4"
 num-traits = "0.2"
 pbjson = "0.7.0"
@@ -51,6 +52,7 @@ tonic = "0.12.0"
 tracing = "0.1.37"
 tracing-subscriber = { version = "0.3.17", features = ["alloc", "ansi", "env-filter", "fmt", "matchers", "once_cell", "parking_lot", "regex", "registry", "sharded-slab", "smallvec", "std", "thread_local", "time", "tracing", "tracing-log"] }
 twox-hash = "1.6.3"
+winnow = { version = "0.6.18", features = ["simd"] }
 
 [dev-dependencies]
 core_affinity = "0.8.1"

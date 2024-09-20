@@ -4,7 +4,7 @@ use axum::http::header::CONTENT_TYPE;
 use axum::response::IntoResponse;
 use axum::routing::get;
 use axum::{http, Json, Router};
-use std::collections::HashMap;
+use hashbrown::HashMap;
 use std::fs::File;
 use std::io::Read;
 use tracing::debug;

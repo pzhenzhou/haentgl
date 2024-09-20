@@ -1,10 +1,10 @@
 mod static_router;
 mod sync_router;
 
-use crate::prost::common_proto::TenantKey;
 use crate::backend::router::static_router::StaticRouter;
 use crate::backend::router::sync_router::SyncRouter;
 use crate::backend::BackendInstance;
+use crate::prost::common_proto::TenantKey;
 use crate::server::proxy_cli_args::ProxyServerArgs;
 use async_trait::async_trait;
 use chrono::Utc;

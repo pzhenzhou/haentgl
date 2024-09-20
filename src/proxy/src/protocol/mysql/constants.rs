@@ -1,5 +1,5 @@
+use hashbrown::HashMap;
 use num_derive::{FromPrimitive, ToPrimitive};
-use std::collections::HashMap;
 use strum_macros::AsRefStr;
 
 // see: https://dev.mysql.com/doc/refman/8.0/en/identifier-length.html

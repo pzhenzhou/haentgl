@@ -1,8 +1,8 @@
-use crate::prost::common_proto::TenantKey;
 use crate::backend::router::{
     BackendLoadBalancer, BackendLoadBalancerType, BackendRouter, RandomBalancer,
 };
 use crate::backend::BackendInstance;
+use crate::prost::common_proto::TenantKey;
 use async_trait::async_trait;
 use std::collections::VecDeque;
 use std::future::Future;

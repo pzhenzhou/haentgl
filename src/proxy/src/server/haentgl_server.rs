@@ -14,8 +14,8 @@ use crate::server::forwarder::{change_user_forward, ComForwarder, GenericComForw
 use crate::server::{init_sql_com_labels, ProxyServer};
 
 use async_trait::async_trait;
+use hashbrown::HashMap;
 use std::borrow::BorrowMut;
-use std::collections::HashMap;
 use std::io::Error;
 use std::ops::DerefMut;
 use std::sync::Arc;

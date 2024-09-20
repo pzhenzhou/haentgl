@@ -68,8 +68,9 @@ impl<R: Read> PacketReader<R> {
                         self.remaining = rest.len();
                         return Ok(Some(p));
                     }
-                    Err(nom::Err::Incomplete(_)) | Err(nom::Err::Error(_)) => {}
-                    Err(nom::Err::Failure(ctx)) => {
+                    Err(winnow::error::ErrMode::Incomplete(_))
+                    | Err(winnow::error::ErrMode::Backtrack(_)) => {}
+                    Err(winnow::error::ErrMode::Cut(ctx)) => {
                         return Err(io::Error::new(
                             io::ErrorKind::InvalidData,
                             format!("{:?}", ctx),
@@ -146,8 +147,9 @@ impl<R: AsyncRead + Unpin> PacketReader<R> {
                         }
                         return Ok(Some(p));
                     }
-                    Err(nom::Err::Incomplete(_)) | Err(nom::Err::Error(_)) => {}
-                    Err(nom::Err::Failure(ctx)) => {
+                    Err(winnow::error::ErrMode::Incomplete(_))
+                    | Err(winnow::error::ErrMode::Backtrack(_)) => {}
+                    Err(winnow::error::ErrMode::Cut(ctx)) => {
                         self.bytes.truncate(self.remaining);
                         return Err(io::Error::new(
                             io::ErrorKind::InvalidData,
