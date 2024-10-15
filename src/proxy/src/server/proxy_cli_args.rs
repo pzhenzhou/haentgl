@@ -52,7 +52,9 @@ pub struct ProxyServerArgs {
     #[clap(long, value_name = "Control Plane Grpc Address")]
     pub cp_addr: Option<String>,
     #[clap(long, value_name = "NODE_ID")]
-    pub node_id: Option<String>,
+    pub curr_node: Option<String>,
+    #[clap(long, value_name = "NAMESPACE")]
+    pub namespace: Option<String>,
     #[clap(subcommand)]
     pub backend: Option<BackendConfigArgs>,
     #[clap(flatten)]
@@ -98,10 +100,24 @@ pub enum BackendConfigArgs {
 }
 
 impl ProxyServerArgs {
+    pub fn get_namespace(&self) -> String {
+        self.namespace.clone().unwrap_or_else(|| {
+            if let Ok(namespace) = std::env::var("MY_NAMESPACE") {
+                namespace
+            } else {
+                "default".to_string()
+            }
+        })
+    }
+
     pub fn get_node_id(&self) -> String {
-        self.node_id
-            .clone()
-            .unwrap_or_else(|| "default".to_string())
+        self.curr_node.clone().unwrap_or_else(|| {
+            if let Ok(node_id) = std::env::var("MY_POD_NAME") {
+                node_id
+            } else {
+                "local_node".to_string()
+            }
+        })
     }
 
     pub fn new_backend_opts(&self) -> BackendManagerOptions {

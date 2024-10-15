@@ -41,7 +41,12 @@ impl HaentglProxyRestState {
         } else {
             "local_node".to_string()
         };
-        get_backend_discovery(my_node)
+        let namespace = if let Ok(namespace) = std::env::var("MY_NAMESPACE") {
+            namespace
+        } else {
+            "default".to_string()
+        };
+        get_backend_discovery(my_node, namespace)
     }
 
     pub fn cpu_profile(&self) -> &'static Prof {

@@ -9,6 +9,8 @@ pub mod backend_mgr;
 pub mod pool;
 // pub mod prost;
 pub mod router;
+mod control_plane_resolver;
+
 // only for test.
 pub fn test_tenant_key() -> TenantKey {
     TenantKey {
@@ -159,15 +161,27 @@ impl DbUserConnLifeCycle {
 
 pub async fn start_backend_discovery(
     curr_node: String,
+    namespace: String,
     topology_srv_addr: String,
     shutdown_rx: &Receiver<common::ShutdownMessage>,
 ) -> Arc<BackendDiscovery> {
-    let backend_discovery = get_backend_discovery(curr_node);
+    let backend_discovery = get_backend_discovery(curr_node, namespace);
+    let arc_cp_srv_resolver = Arc::new(control_plane_resolver::CpResolver::new(
+        topology_srv_addr,
+        None,
+    ));
+    let cp_srv_resolver_shutdown_rx = Box::new(shutdown_rx.clone());
+    let cp_srv_resolver_clone = Arc::clone(&arc_cp_srv_resolver);
+    tokio::task::spawn(async move {
+        cp_srv_resolver_clone
+            .start(cp_srv_resolver_shutdown_rx)
+            .await
+    });
     let be_discovery_arc = Arc::clone(&backend_discovery);
     let shutdown_rx_clone = Box::new(shutdown_rx.clone());
     tokio::task::spawn(async move {
         let res = be_discovery_arc
-            .discover(topology_srv_addr.as_str(), None, shutdown_rx_clone)
+            .discover_with_retry(arc_cp_srv_resolver, shutdown_rx_clone)
             .await;
         match res {
             Ok(_) => info!("DbInstanceDiscoveryService shutdown."),
@@ -175,6 +189,7 @@ pub async fn start_backend_discovery(
         }
     });
     info!("DbInstanceDiscoveryService started.");
+
     backend_discovery
 }
 

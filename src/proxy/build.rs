@@ -44,7 +44,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 "#[derive(Eq, Hash, serde::Serialize, serde::Deserialize)]",
             )
             .out_dir(output_dir.as_path())
-            .compile(&[proto_file], &["protos"])
+            .compile_protos(&[proto_file], &["protos"])
             .unwrap_or_else(|_| panic!("Failed to compile protobuf files! {}", proto));
 
         let rewrite_files = entry.1;

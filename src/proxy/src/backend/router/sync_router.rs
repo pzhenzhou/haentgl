@@ -23,9 +23,16 @@ pub struct SyncRouter {
 impl SyncRouter {
     pub async fn new(proxy_cli: &ProxyServerArgs, shutdown_rx: &Receiver<ShutdownMessage>) -> Self {
         let node_id = proxy_cli.get_node_id();
+        let namespace = proxy_cli.get_namespace();
         let topology_srv_addr = proxy_cli.cp_addr.clone().unwrap();
         Self {
-            be_discovery: start_backend_discovery(node_id, topology_srv_addr, shutdown_rx).await,
+            be_discovery: start_backend_discovery(
+                node_id,
+                namespace,
+                topology_srv_addr,
+                shutdown_rx,
+            )
+            .await,
             balancer: Box::new(RandomBalancer::new()),
         }
     }
@@ -38,7 +45,7 @@ impl BackendRouter for SyncRouter {
         F: Fn(BackendInstance) -> Fut + Send,
         Fut: Future<Output = Result<(), Error>> + Send + Sync,
     {
-        let rx_change = &mut self.be_discovery.db_instance_change_notify().await;
+        let rx_change = &mut self.be_discovery.backend_instance_change_notify().await;
         loop {
             if rx_change.changed().await.is_err() {
                 return Err(Error::new(
@@ -92,7 +99,7 @@ impl BackendRouter for SyncRouter {
     ) -> Result<VecDeque<BackendInstance>, Error> {
         let all_be_list = self.be_discovery.all_cluster_list();
         if let Some(tenant) = tenant_key {
-            return if let Some(entry) = all_be_list.get(&tenant) {
+            if let Some(entry) = all_be_list.get(&tenant) {
                 let cluster_list_read_guard = entry.value().read().await;
                 Ok(cluster_list_read_guard.clone())
             } else {
@@ -100,7 +107,7 @@ impl BackendRouter for SyncRouter {
                     std::io::ErrorKind::NotFound,
                     "No backends found",
                 ))
-            };
+            }
         } else {
             let mut result = VecDeque::new();
             for entry in all_be_list.iter() {

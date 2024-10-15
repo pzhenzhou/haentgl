@@ -16,6 +16,8 @@ enum ServiceStatus {
 
 message SubscribeId {
     string id = 1;
+    string namespace = 2;
+    string name = 3;
 }
 
 message ClusterName {
