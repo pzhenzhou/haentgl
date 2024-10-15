@@ -5,6 +5,10 @@
 pub struct SubscribeId {
     #[prost(string, tag = "1")]
     pub id: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub namespace: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub name: ::prost::alloc::string::String,
 }
 #[allow(non_camel_case_types)]
 #[derive(Eq, Hash)]
