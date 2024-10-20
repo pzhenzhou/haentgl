@@ -7,44 +7,49 @@ serves as a unified access layer for serverless databases, providing seamless co
 connection maintenance, and topology awareness. Additionally, it includes control plane functions such as overload
 control and database cluster state observation.
 
+## Architecture
+
+```text
+        +---------------------+
+        |        Users        |
+        +---------------------+
+                  |
+                  v
+        +---------------------+
+        |     Proxy Layer     | <---------------------+
+        +---------------------+                       |
+                  |                                   |
+                  v                                   |
++---------------------------------+                   |
+|   MySQL-Compatible Distributed  |                   |
+|            Database             |                   |
++---------------------------------+                   |
+                  ^                                   |
+                  |                                   |
+        +---------------------+                       |
+        |    Control Plane    | ----------------------+
+        +---------------------+
+
+```
+
+1. Users
+    - Connect to the Proxy Layer using the MySQL protocol to access database services.
+2. Proxy Layer
+    - Acts as the sole access point to the database, maintaining user connections and sessions.
+    - Monitors backend database status (e.g., connection counts, basic metrics).Perceiving the topology of clusters to
+      better enable **"applications to be closer to data, or data locality."**
+    - **Always Online**: Enables seamless upgrades and maintenance of the backend databases without user impact by migrating
+      connections and maintaining sessions.
+    - **Automatic Scaling**: Works with the Control Plane to detect changes in the database cluster, facilitating
+      auto-scaling and Scale-to-zero, a key feature of serverless products.
+3. Control Plane
+    - Manages deployment and scaling of the Distributed Database and other components.
+
 ## Project status
 
 ### Not implemented at the moment
 
-1. overload control.
-2. connection migration.
-
-## Features
-
-### Core Functions
-
-#### Command Forwarding
-
-- Efficiently forwards commands to the appropriate back-end MySQL database cluster.
-
-#### Cluster Autodiscovery
-
-- Automatically redirects connections when the proxied back-end database cluster scale-out or when a new cluster is
-  deployed.
-
-#### Connection Maintenance
-
-- Maintains user connections during back-end database cluster upgrades, restarts, or reclamations (scaling to zero),
-  ensuring no impact on user's applications and automatic connection redirection.
-
-#### Cluster Topology Awareness
-
-- Provides awareness of cluster topology and supports affinity scheduling for optimized performance.
-
-### Control Plane Functions
-
-#### Overload Control
-
-- Manages and controls overload situations to maintain optimal performance and stability.
-
-#### Cluster State Observation
-
-- Observes and reports the internal state of the database cluster for monitoring and troubleshooting purposes.
+1. connection migration.
 
 ### How to test locally
 
