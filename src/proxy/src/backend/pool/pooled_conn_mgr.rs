@@ -1,5 +1,5 @@
 use crate::backend::pool::{BackendIO, PooledConn};
-use crate::backend::{BackendInstance, DbUserConnLifeCycle};
+use crate::backend::{BackendInstance, DbConnPhase, DbUserConnLifeCycle};
 
 use deadpool::managed::{Metrics, RecycleError, RecycleResult};
 use futures::FutureExt;
@@ -7,7 +7,7 @@ use nanoid::nanoid;
 use std::future::Future;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use tracing::{info, warn};
+use tracing::info;
 
 #[derive(Clone)]
 pub struct PooledConnMgr {
@@ -55,26 +55,41 @@ impl deadpool::managed::Manager for PooledConnMgr {
         pooled_conn: &mut Self::Type,
         metrics: &Metrics,
     ) -> impl Future<Output = RecycleResult<Self::Error>> + Send {
-        let conn_id = pooled_conn.id.clone();
-        info!("ProxySrv try recycle conn_id={:?} {:?}", conn_id, metrics);
+        info!("ProxySrv recycle metrics={:?}", metrics);
         async move {
             let conn_life_cycle = &pooled_conn.conn_life_cycle.lock().await;
             if conn_life_cycle.is_none() {
                 info!(
-                    "ProxySrv Failed recycled backend-end id={:?} conn_life_cycle is none",
+                    "ProxySrv conn_id={:?} back into pool.",
                     &pooled_conn.id
                 );
-                return Err(RecycleError::from(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    "connection is not used",
-                )));
+                Ok(())
+            } else {
+                let conn_phase = conn_life_cycle.conn_phase.clone().unwrap();
+                info!(
+                    "ProxySrv recycled conn_id={:?} {:?}",
+                    &pooled_conn.id, conn_life_cycle
+                );
+                match conn_phase {
+                    DbConnPhase::Connection => Err(RecycleError::from(std::io::Error::new(
+                        std::io::ErrorKind::PermissionDenied,
+                        "connection is illegal",
+                    ))),
+                    _ => Ok(()),
+                }
             }
-            let rs = pooled_conn.close().await;
-            if let Err(e) = rs {
-                warn!("ProxySrv recycle conn_id={:?} failed {:?}", conn_id, e);
-            }
-            Ok(())
         }
         .boxed()
+    }
+
+    fn detach(&self, pooled_conn: &mut PooledConn) {
+        futures::executor::block_on(async {
+            let conn_id = pooled_conn.id.clone();
+            let close_rs = pooled_conn.close().await;
+            info!(
+                "ProxySrv Detached backend-end id={:?} close_rs is err {:?}",
+                conn_id, close_rs
+            );
+        })
     }
 }
