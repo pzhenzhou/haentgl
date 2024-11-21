@@ -99,16 +99,13 @@ impl<A: Authenticator> HaentglServer<A> {
             .connect_to_backend(&handshake_response)
             .await?;
 
-        let pool_conn_mgr = pool_ref.manager();
         // FIXME: when pool is full, it will block here.
         let pooled_conn = pool_ref.get().await.unwrap();
         let conn_uid = &pooled_conn.id;
-
-        let conn_life_cycle = pool_conn_mgr
-            .conn_life_cycle(conn_uid.clone())
-            .unwrap_or_default();
         let backend_conn = &pooled_conn.inner_conn;
         let mut backend_client_guard = backend_conn.lock().await;
+
+        let conn_life_cycle = { pooled_conn.get_conn_life_cycle().await };
         let (backend_reader, backend_writer) = backend_client_guard.deref_mut();
         backend_writer.reset_seq();
 
@@ -158,16 +155,21 @@ impl<A: Authenticator> HaentglServer<A> {
         let db_user = handshake_response.db_user_string();
         match auth_result {
             Ok(()) => {
-                pool_conn_mgr.save_conn_life_cycle(
-                    conn_uid.clone(),
-                    DbUserConnLifeCycle::new_conn_life_cycle(db_user, DbConnPhase::Command),
-                );
+                pooled_conn
+                    .update_conn_life_cycle(DbUserConnLifeCycle::new_conn_life_cycle(
+                        db_user,
+                        DbConnPhase::Command,
+                    ))
+                    .await;
+                debug!("Authentication success Set ConnPhase=Command");
             }
             Err(_e) => {
-                pool_conn_mgr.save_conn_life_cycle(
-                    conn_uid.clone(),
-                    DbUserConnLifeCycle::new_conn_life_cycle(db_user, DbConnPhase::Connection),
-                );
+                pooled_conn
+                    .update_conn_life_cycle(DbUserConnLifeCycle::new_conn_life_cycle(
+                        db_user,
+                        DbConnPhase::Connection,
+                    ))
+                    .await;
                 debug!("Authentication failure does not execute the command");
                 return Ok(());
             }
