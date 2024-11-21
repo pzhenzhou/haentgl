@@ -10,7 +10,7 @@ use tokio::sync::Mutex;
 
 pub mod pooled_conn_mgr;
 
-pub const BACKEND_CLIENT_DEFAULT_IDLE: Duration = Duration::from_secs(60 * 60);
+pub const BACKEND_CLIENT_DEFAULT_IDLE: Duration = Duration::from_secs(60 * 10);
 #[derive(Debug, Clone)]
 pub struct BackendPoolConfig {
     pub initial_size: u32,
@@ -40,10 +40,20 @@ pub struct PooledConn {
 }
 
 impl PooledConn {
+    pub async fn get_conn_life_cycle(&self) -> DbUserConnLifeCycle {
+        let conn_life_cycle_guard = self.conn_life_cycle.lock().await;
+        conn_life_cycle_guard.clone()
+    }
+
     pub async fn close(&self) -> Result<(), std::io::Error> {
         let mut inner_guard = self.inner_conn.lock().await;
         let (_, writer) = inner_guard.deref_mut();
         writer.shutdown().await
+    }
+
+    pub async fn update_conn_life_cycle(&self, conn_phase: DbUserConnLifeCycle) {
+        let mut conn_life_cycle_guard = self.conn_life_cycle.lock().await;
+        *conn_life_cycle_guard = conn_phase;
     }
 }
 #[derive(Clone)]
