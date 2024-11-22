@@ -5,6 +5,7 @@
 #![feature(iter_collect_into)]
 #![feature(hasher_prefixfree_extras)]
 #![feature(coroutines)]
+#![feature(thread_id_value)]
 
 pub mod backend;
 pub mod cp;

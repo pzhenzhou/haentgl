@@ -2,7 +2,6 @@ use crate::backend::backend_mgr::BackendMgr;
 use crate::backend::{DbConnPhase, DbUserConnLifeCycle};
 use crate::protocol::mysql::basic::HandshakeResponse;
 use crate::protocol::mysql::constants::CommandCode;
-use crate::protocol::mysql::error_codes::ErrorKind;
 use crate::protocol::mysql::packet::packet_reader::PacketReader;
 use crate::protocol::mysql::packet::packet_writer::PacketWriter;
 use crate::protocol::mysql::packet::*;
@@ -14,55 +13,31 @@ use crate::server::forwarder::{change_user_forward, ComForwarder, GenericComForw
 use crate::server::{init_sql_com_labels, ProxyServer};
 
 use async_trait::async_trait;
+use common::metrics::common_labels;
+use common::metrics::metric_def::PROXY_COM_LATENCY;
 use hashbrown::HashMap;
+use num_traits::FromPrimitive;
+use rustls::server::ServerConfig;
 use std::borrow::BorrowMut;
 use std::io::Error;
 use std::ops::DerefMut;
 use std::sync::Arc;
-
-use common::metrics::common_labels;
-use common::metrics::metric_def::PROXY_COM_LATENCY;
-use num_traits::FromPrimitive;
-use rustls::server::ServerConfig;
+use std::thread;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
-use tokio::sync::RwLock;
 use tokio_rustls::rustls;
-use tracing::{debug, info, warn};
-
-#[derive(Debug, Clone)]
-pub struct ProxyConnStatus {
-    max_connections: u64,
-    conn_id: u64,
-}
-
-impl Default for ProxyConnStatus {
-    fn default() -> Self {
-        Self {
-            max_connections: 1000,
-            conn_id: 0,
-        }
-    }
-}
+use tracing::{debug, warn};
 
 pub struct HaentglServer<A> {
     sql_com_labels: HashMap<u8, Vec<(&'static str, String)>>,
-    conn_status: RwLock<ProxyConnStatus>,
     backend_mgr: Arc<BackendMgr>,
     authenticator: A,
 }
 
 impl<A: Authenticator> HaentglServer<A> {
     pub fn new(backend_mgr: Arc<BackendMgr>, authenticator: A) -> Self {
-        let proxy_conn_status = ProxyConnStatus::default();
-        common::metrics::gauge(
-            common::metrics::metric_def::PROXY_MAX_CONN,
-            proxy_conn_status.max_connections as f64,
-            Some(common_labels()),
-        );
         Self {
             sql_com_labels: init_sql_com_labels().clone(),
-            conn_status: RwLock::new(proxy_conn_status),
             backend_mgr,
             authenticator,
         }
@@ -78,15 +53,7 @@ impl<A: Authenticator> HaentglServer<A> {
         R: AsyncRead + Send + Unpin,
         W: AsyncWrite + Send + Unpin,
     {
-        let conn_id = self.update_server_status(&mut writer).await?;
         let salt = gen_user_salt();
-        info!("ProxySrv on_conn conn_id={conn_id}");
-        // record curr connect
-        common::metrics::gauge_inc(
-            common::metrics::metric_def::PROXY_CURR_CONN,
-            1_f64,
-            Some(common_labels()),
-        );
         #[cfg(feature = "tls")]
         let (seq, handshake_response, handshake_pkt, mut reader) =
             self.on_conn(reader, &mut writer, salt, tls_conf).await?;
@@ -189,30 +156,6 @@ impl<A: Authenticator> HaentglServer<A> {
     pub async fn initialize_async(&self) -> Result<(), Error> {
         self.backend_mgr.prepare_backend_conn_pool().await
     }
-
-    async fn update_server_status<W>(&self, client_writer: &mut W) -> Result<u64, Error>
-    where
-        W: AsyncWrite + Send + Unpin,
-    {
-        let mut write_guard = self.conn_status.write().await;
-        let curr_conn = write_guard.conn_id;
-        if curr_conn > write_guard.max_connections {
-            let mut writer = PacketWriter::new(client_writer);
-            writers::write_err_packet(
-                ErrorKind::ER_TOO_MANY_USER_CONNECTIONS,
-                "too many connections.".as_bytes(),
-                &mut writer,
-            )
-            .await?;
-            return Err(Error::new(
-                std::io::ErrorKind::TooManyLinks,
-                "too many connections".to_string(),
-            ));
-        }
-        write_guard.conn_id += 1;
-        let conn_id = write_guard.conn_id;
-        Ok(conn_id)
-    }
 }
 
 #[async_trait]
@@ -230,7 +173,7 @@ impl<A: Authenticator> ProxyServer for HaentglServer<A> {
     {
         let mut client_reader = PacketReader::new(r);
         let mut client_writer = PacketWriter::new(w);
-        let conn_id = self.conn_status.read().await.conn_id;
+        let conn_id = thread::current().id().as_u64().get();
         #[cfg(feature = "tls")]
         let (seq, handshake_response, pkt) = self
             .authenticator
